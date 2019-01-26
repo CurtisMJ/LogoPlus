@@ -34,6 +34,7 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Switch;
+import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 
 import com.rarepebble.colorpicker.ColorPickerView;
 
@@ -194,6 +195,9 @@ public class MainActivity extends AppCompatActivity
             });
             AlertDialog aboutDialog = aboutBuilder.create();
             aboutDialog.show();
+        } else if (id == R.id.ossItem)
+        {
+            startActivity(new Intent(this, OssLicensesMenuActivity.class));
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
