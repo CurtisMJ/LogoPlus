@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -15,6 +16,7 @@ import android.os.Message;
 import android.os.PowerManager;
 import android.os.Process;
 import android.util.Log;
+import android.widget.Toast;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -30,8 +32,16 @@ public class LogoPlusService extends Service {
     public static final int NOTIF_PUSH = 1;
     public static final int ENTER_IDLE = 2;
     public static final int EXIT_IDLE = 3;
+    public static final int APPLY_EFFECT_MSG = 4;
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
+    public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
+
+    public static final int EFFECT_NONE = 0;
+    public static final int EFFECT_STATIC= 1;
+    public static final int EFFECT_PULSE = 2;
+    public static final int EFFECT_RAINBOW = 3;
+    public static final int EFFECT_PINWHEEL = 4;
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
@@ -74,7 +84,24 @@ public class LogoPlusService extends Service {
         Log.d("debug", "effect start");
         if (!inEffectOn) {
             inEffectOn = true;
-            runProgram(MicroCodeManager.rainbowProgramBuild(6000f, false));
+            switch (settings.getInt("PassiveEffect", R.id.noneRadio))
+            {
+                case EFFECT_NONE:
+                    break;
+                case EFFECT_STATIC:
+                    runProgram(MicroCodeManager.staticProgramBuild(settings.getInt("PassiveColor", Color.GREEN)));
+                    break;
+                case EFFECT_PULSE:
+                    runProgram(MicroCodeManager.pulseProgramBuild((float)settings.getInt("EffectLength", 6000),settings.getInt("PassiveColor", Color.GREEN)));
+                    break;
+                case EFFECT_RAINBOW:
+                    runProgram(MicroCodeManager.rainbowProgramBuild((float)settings.getInt("EffectLength", 6000), false));
+                    break;
+                case EFFECT_PINWHEEL:
+                    runProgram(MicroCodeManager.rainbowProgramBuild((float)settings.getInt("EffectLength", 6000), true));
+                    break;
+            }
+
         }
     }
 
@@ -95,7 +122,7 @@ public class LogoPlusService extends Service {
             Log.d("debug", "interactive idle, effect must run");
             runEffect();
         }
-        else
+        else if (settings.getBoolean("PowerSave", true))
         {
             inEffectOn = false;
             rootSession.waitForIdle();
@@ -194,6 +221,17 @@ public class LogoPlusService extends Service {
                 Log.d("debug", "idle requested by outside source");
                 enterIdle();
             }
+            else if (msg.arg1 == APPLY_EFFECT_MSG)
+            {
+                Toast.makeText(LogoPlusService.this, "Applying effect", Toast.LENGTH_SHORT);
+                Log.d("debug", "updating effect");
+                if (inEffectOn)
+                {
+                    inEffectOn = false;
+                    Log.d("debug", "re-run effect");
+                    runEffect();
+                }
+            }
             handlerLock.release();
         }
 
@@ -227,7 +265,7 @@ public class LogoPlusService extends Service {
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
         if (!settings.getBoolean("ServiceEnabled", false))
         {
-            failOut();
+            stopSelf();
             return;
         }
 
@@ -249,6 +287,7 @@ public class LogoPlusService extends Service {
 
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_USER_PRESENT);
+        intentFilter.addAction(APPLY_EFFECT);
         offReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -263,6 +302,12 @@ public class LogoPlusService extends Service {
                     msg.arg1 = ENTER_IDLE;
                     mServiceHandler.sendMessage(msg);
                 }
+                else if (intent.getAction().equals(APPLY_EFFECT)) {
+                    Log.d("debug", "effect update requested");
+                    Message msg = mServiceHandler.obtainMessage();
+                    msg.arg1 = APPLY_EFFECT_MSG;
+                    mServiceHandler.sendMessage(msg);
+                }
             }
         };
         registerReceiver(offReceiver, intentFilter);
@@ -272,7 +317,7 @@ public class LogoPlusService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // If we get killed, after returning from here, restart
-        if (intent != null)
+        if ((mServiceHandler != null) && (intent != null))
         {
             if (intent.getBooleanExtra("notif", false)) {
                 Message msg = mServiceHandler.obtainMessage();
@@ -294,11 +339,11 @@ public class LogoPlusService extends Service {
 
     @Override
     public void onDestroy() {
-        mServiceLooper.quitSafely();
+        if (mServiceHandler != null) mServiceLooper.quitSafely();
         if (rootSession != null) {
             rootSession.kill();
         }
-        unregisterReceiver(offReceiver);
+        if (offReceiver != null) unregisterReceiver(offReceiver);
         rootSession = null;
     }
 }

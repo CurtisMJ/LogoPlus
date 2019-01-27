@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     tools:showIn="navigation_view">
     <group android:id="@+id/screensGroup" >
@@ -18,4 +19,9 @@
         android:id="@+id/ossItem"
         android:checkable="false"
         android:title="@string/oss_text" />
+    <item
+        android:id="@+id/service_status_switch"
+        android:title="@string/service_status_text"
+        app:actionLayout="@layout/switch_item"
+        app:showAsAction="always" />
 </menu>

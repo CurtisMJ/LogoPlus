@@ -29,4 +29,6 @@
     <string name="pulsing">Pulse</string>
     <string name="effectColorLbl">Effect Color:</string>
     <string name="effectTimeLbl">Effect Length:</string>
+    <string name="powerSave">Only while unlocked</string>
+    <string name="apply">Apply</string>
 </resources>

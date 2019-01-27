@@ -14,27 +14,14 @@
         tools:context=".MainActivity"
         tools:showIn="@layout/app_bar_main">
 
-        <Switch
-            android:id="@+id/service_status_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:enabled="false"
-            android:switchPadding="@dimen/switch_padding"
-            android:text="@string/service_status_text"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
         <ListView
             android:id="@+id/appList"
             android:layout_width="0dp"
             android:layout_height="0dp"
-            android:layout_marginTop="8dp"
             app:layout_constraintBottom_toTopOf="@id/brightLbl"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/service_status_switch"></ListView>
+            app:layout_constraintTop_toBottomOf="@+id/systemAppsChk"></ListView>
 
         <TextView
             android:id="@+id/brightLbl"
@@ -85,17 +72,17 @@
 
     </android.support.constraint.ConstraintLayout>
 
-    <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    <ScrollView
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-    <android.support.constraint.ConstraintLayout
-        android:id="@+id/effectsLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        tools:context=".MainActivity"
-        tools:showIn="@layout/app_bar_main">
+        <android.support.constraint.ConstraintLayout
+            android:id="@+id/effectsLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            tools:context=".MainActivity"
+            tools:showIn="@layout/app_bar_main">
 
             <TextView
                 android:id="@+id/effectsLbl"
@@ -183,19 +170,19 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/effectColorPick" />
 
-        <SeekBar
-            android:id="@+id/effectLengthBar"
-            android:layout_width="0dp"
-            android:layout_height="48dp"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="16dp"
-            android:layout_marginEnd="8dp"
-            android:max="10000"
-            android:progress="6000"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/effectLengthIndicator"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/effectLengthLbl" />
+            <SeekBar
+                android:id="@+id/effectLengthBar"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="16dp"
+                android:layout_marginEnd="8dp"
+                android:max="10000"
+                android:progress="6000"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintEnd_toStartOf="@id/effectLengthIndicator"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/effectLengthLbl" />
 
             <EditText
                 android:id="@+id/effectLengthIndicator"
@@ -207,7 +194,27 @@
                 android:text="6000"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@+id/effectLengthBar" />
-    </android.support.constraint.ConstraintLayout>
+
+            <Switch
+                android:id="@+id/powerSaveSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginTop="16dp"
+                android:text="@string/powerSave"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/effectLengthBar" />
+
+            <Button
+                android:id="@+id/applyBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginTop="16dp"
+                android:text="@string/apply"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/powerSaveSwitch" />
+        </android.support.constraint.ConstraintLayout>
     </ScrollView>
 
 

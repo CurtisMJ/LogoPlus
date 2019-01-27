@@ -30,6 +30,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
+import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
@@ -102,6 +103,7 @@ public class MainActivity extends AppCompatActivity
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(LogoPlusService.START_BROADCAST)) {
                     serviceStatusSwitch.setEnabled(true);
+                    serviceStatusSwitch.setChecked(true);
                 } else if (intent.getAction().equals(LogoPlusService.START_FAIL_BROADCAST)) {
                     SharedPreferences.Editor editor = settings.edit();
                     editor.putBoolean("ServiceEnabled", false);
@@ -126,7 +128,8 @@ public class MainActivity extends AppCompatActivity
         registerReceiver(statusReceiver, intentFilter);
 
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
-        serviceStatusSwitch = (Switch)findViewById(R.id.service_status_switch);
+        MenuItem serviceSwitchItem = menu.findItem(R.id.service_status_switch);
+        serviceStatusSwitch = serviceSwitchItem.getActionView().findViewWithTag("innerSwitch");
         serviceStatusSwitch.setEnabled(true);
         serviceStatusSwitch.setChecked(settings.getBoolean("ServiceEnabled", false));
         serviceStatusSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
@@ -221,12 +224,26 @@ public class MainActivity extends AppCompatActivity
         passiveGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
+                int pref = LogoPlusService.EFFECT_NONE;
+                switch (checkedId) {
+                    case R.id.noneRadio: pref = LogoPlusService.EFFECT_NONE; break;
+                    case R.id.staticRadio: pref = LogoPlusService.EFFECT_STATIC; break;
+                    case R.id.pulsingRadio: pref = LogoPlusService.EFFECT_PULSE; break;
+                    case R.id.rainbowRadio: pref = LogoPlusService.EFFECT_RAINBOW; break;
+                    case R.id.pinWheelRadio: pref = LogoPlusService.EFFECT_PINWHEEL; break;
+                }
                 SharedPreferences.Editor  edit = settings.edit();
-                edit.putInt("PassiveEffect", checkedId);
+                edit.putInt("PassiveEffect", pref);
                 edit.apply();
             }
         });
-        RadioButton selectedButton = passiveGrp.findViewById(settings.getInt("PassiveEffect", R.id.noneRadio));
+        RadioButton selectedButton = passiveGrp.findViewById(R.id.noneRadio);
+        switch (settings.getInt("PassiveEffect", LogoPlusService.EFFECT_NONE)) {
+            case LogoPlusService.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.noneRadio); break;
+            case LogoPlusService.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
+            case LogoPlusService.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
+            case LogoPlusService.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;
+        }
         selectedButton.setChecked(true);
         effectColor = findViewById(R.id.effectColorPick);
         effectColor.setBackgroundColor(settings.getInt("PassiveColor", Color.GREEN));
@@ -302,6 +319,26 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        Switch pwrSaveSwitch = findViewById(R.id.powerSaveSwitch);
+        pwrSaveSwitch.setChecked(settings.getBoolean("PowerSave", true));
+        pwrSaveSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                SharedPreferences.Editor  edit = settings.edit();
+                edit.putBoolean("PowerSave", isChecked);
+                edit.apply();
+            }
+        });
+
+        Button applyBtn = findViewById(R.id.applyBtn);
+        applyBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent broadCastIntent = new Intent();
+                broadCastIntent.setAction(LogoPlusService.APPLY_EFFECT);
+                sendBroadcast(broadCastIntent);
+            }
+        });
     }
 
     @Override

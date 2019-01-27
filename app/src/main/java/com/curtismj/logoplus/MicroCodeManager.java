@@ -91,6 +91,11 @@ class MicroCodeManager {
             return dw(0xA000 | ((loops & 0x3F) << 7) | (addr & 0x7F));
         }
 
+        public byte end()
+        {
+            return dw(0xC000);
+        }
+
         public  String dump()
         {
             String fin = "";
@@ -100,6 +105,89 @@ class MicroCodeManager {
             }
             return  fin;
         }
+    }
+
+    public static  String[] staticProgramBuild(int color)
+    {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+        byte eng1 = prog.dw(0x1C0);
+        byte eng2 = prog.dw(0x15);
+        byte eng3 = prog.dw(0x2A);
+
+        int channel;
+        byte prog1 = prog.muxMapAddr(eng1);
+        prog.setPwm(0);
+        channel = (color>> 16) & 0xFF;
+        prog.ramp(1000f, (byte) 0, channel);
+        prog.end();
+
+        byte prog2 = prog.muxMapAddr(eng2);
+        prog.setPwm(0);
+        channel = (color >> 8) & 0xFF;
+        prog.ramp(1000f, (byte) 0, channel);
+        prog.end();
+
+        byte prog3 = prog.muxMapAddr(eng3);
+        prog.setPwm(0);
+        channel = (color) & 0xFF;
+        prog.ramp(1000f, (byte) 0, channel);
+        prog.end();
+
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
+    }
+
+    public static  String[] pulseProgramBuild(float msecs, int color)
+    {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+        byte eng1 = prog.dw(0x1C0);
+        byte eng2 = prog.dw(0x15);
+        byte eng3 = prog.dw(0x2A);
+
+        int channel;
+        byte prog1 = prog.muxMapAddr(eng1);
+        prog.setPwm(0);
+        channel = (color>> 16) & 0xFF;
+        prog.trigger(false, 0, 1, 1);
+        prog.ramp(msecs, (byte) 0, channel);
+        prog.trigger(true, 0, 1, 1);
+        prog.trigger(false, 0, 1, 1);
+        prog.ramp(msecs, (byte) 1, channel);
+        prog.trigger(true, 0, 1, 1);
+        prog.branch(0, 2);
+
+        byte prog2 = prog.muxMapAddr(eng2);
+        prog.setPwm(0);
+        channel = (color >> 8) & 0xFF;
+        prog.trigger(true, 1, 0, 0);
+        prog.ramp(msecs, (byte) 0, channel);
+        prog.trigger(false, 1, 0, 0);
+        prog.trigger(true, 1, 0, 0);
+        prog.ramp(msecs, (byte) 1, channel);
+        prog.trigger(false, 1, 0, 0);
+        prog.branch(0, 2);
+
+        byte prog3 = prog.muxMapAddr(eng3);
+        prog.setPwm(0);
+        channel = (color) & 0xFF;
+        prog.trigger(true, 1, 0, 0);
+        prog.ramp(msecs, (byte) 0, channel);
+        prog.trigger(false, 1, 0, 0);
+        prog.trigger(true, 1, 0, 0);
+        prog.ramp(msecs, (byte) 1, channel);
+        prog.trigger(false, 1, 0, 0);
+        prog.branch(0, 2);
+
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
     }
 
     public static String[] rainbowProgramBuild(float msecs, boolean pinwheel)
