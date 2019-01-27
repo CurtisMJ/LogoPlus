@@ -2,10 +2,20 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:showIn="navigation_view">
+    <group android:id="@+id/screensGroup" >
+        <item
+            android:id="@+id/notifItem"
+            android:title="@string/notif_menu" />
+        <item
+            android:id="@+id/effectsItem"
+            android:title="@string/effects" />
+    </group>
     <item
         android:id="@+id/aboutItem"
-        android:title="About" />
+        android:checkable="false"
+        android:title="@string/about_title" />
     <item
         android:id="@+id/ossItem"
+        android:checkable="false"
         android:title="@string/oss_text" />
 </menu>

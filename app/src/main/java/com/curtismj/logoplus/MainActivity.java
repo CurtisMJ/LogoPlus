@@ -22,17 +22,24 @@ import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.ProgressBar;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.Switch;
+import android.widget.ViewFlipper;
 
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 import com.rarepebble.colorpicker.ColorPickerView;
@@ -56,12 +63,21 @@ public class MainActivity extends AppCompatActivity
     private SeekBar brightness;
     int iconWidth;
     private BroadcastReceiver statusReceiver;
+    ViewFlipper mainSwitcher;
+    MenuItem notifItem, effectsItem;
+    RadioGroup passiveGrp;
+    View effectColor;
+    SeekBar effecLengthBar;
+    EditText effectLengthIndicator;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        mainSwitcher = findViewById(R.id.mainSwitcher);
+
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -72,6 +88,9 @@ public class MainActivity extends AppCompatActivity
         toggle.syncState();
 
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        Menu menu = navigationView.getMenu();
+        notifItem = menu.findItem(R.id.notifItem);
+        effectsItem = menu.findItem(R.id.effectsItem);
         navigationView.setNavigationItemSelectedListener(this);
 
         serviceStartIntent = new Intent(this,LogoPlusService.class);
@@ -195,6 +214,94 @@ public class MainActivity extends AppCompatActivity
 
             }
         });
+
+        viewSwitch(settings.getInt("CurrentView", 0));
+
+        passiveGrp = findViewById(R.id.passiveGroup);
+        passiveGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                SharedPreferences.Editor  edit = settings.edit();
+                edit.putInt("PassiveEffect", checkedId);
+                edit.apply();
+            }
+        });
+        RadioButton selectedButton = passiveGrp.findViewById(settings.getInt("PassiveEffect", R.id.noneRadio));
+        selectedButton.setChecked(true);
+        effectColor = findViewById(R.id.effectColorPick);
+        effectColor.setBackgroundColor(settings.getInt("PassiveColor", Color.GREEN));
+        effectColor.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                final ColorPickerView picker = new ColorPickerView(MainActivity.this);
+                picker.setColor(settings.getInt("PassiveColor", Color.GREEN));
+                picker.showAlpha(false);
+                picker.showHex(true);
+                picker.showPreview(true);
+                AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(MainActivity.this);
+                pickerBuilder
+                        .setTitle(null)
+                        .setView(picker)
+                        .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                final int color = picker.getColor();
+                                SharedPreferences.Editor  edit = settings.edit();
+                                edit.putInt("PassiveColor", color);
+                                edit.apply();
+                                effectColor.setBackgroundColor(color);
+                            }
+                        })
+                        .setNegativeButton(R.string.cancel, null);
+                AlertDialog pickerDialog = pickerBuilder.create();
+                pickerDialog.show();
+            }
+        });
+
+        effecLengthBar = findViewById(R.id.effectLengthBar);
+        effectLengthIndicator = findViewById(R.id.effectLengthIndicator);
+        effecLengthBar.setProgress(settings.getInt("EffectLength", 6000));
+        effectLengthIndicator.setText(Integer.toString(effecLengthBar.getProgress()));
+        effecLengthBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                SharedPreferences.Editor  edit = settings.edit();
+                edit.putInt("EffectLength", progress);
+                edit.apply();
+               if (fromUser) effectLengthIndicator.setText(Integer.toString(progress));
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+        effectLengthIndicator.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                try {
+                    effecLengthBar.setProgress(Integer.parseInt(s.toString()));
+                } catch (NumberFormatException e)  {
+                    // well, that's awkward
+                }
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+
+            }
+        });
+
     }
 
     @Override
@@ -210,6 +317,26 @@ public class MainActivity extends AppCompatActivity
             drawer.closeDrawer(GravityCompat.START);
         } else {
             super.onBackPressed();
+        }
+    }
+
+    public void viewSwitch(int id)
+    {
+        SharedPreferences.Editor  edit = settings.edit();
+        edit.putInt("CurrentView", id);
+        edit.apply();
+        mainSwitcher.setDisplayedChild(id);
+        switch (id)
+        {
+            case 0:
+                notifItem.setChecked(true);
+                effectsItem.setChecked(false);
+                break;
+
+            case 1:
+                effectsItem.setChecked(true);
+                notifItem.setChecked(false);
+                break;
         }
     }
 
@@ -232,9 +359,18 @@ public class MainActivity extends AppCompatActivity
             });
             AlertDialog aboutDialog = aboutBuilder.create();
             aboutDialog.show();
-        } else if (id == R.id.ossItem)
+        }
+        else if (id == R.id.ossItem)
         {
             startActivity(new Intent(this, OssLicensesMenuActivity.class));
+        }
+        else if (id == R.id.notifItem)
+        {
+            viewSwitch(0);
+        }
+        else if (id == R.id.effectsItem)
+        {
+            viewSwitch(1);
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);

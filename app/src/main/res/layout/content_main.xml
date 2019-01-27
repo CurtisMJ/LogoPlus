@@ -1,81 +1,214 @@
 <?xml version="1.0" encoding="utf-8"?>
-<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ViewFlipper xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
     app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    tools:context=".MainActivity"
-    tools:showIn="@layout/app_bar_main">
+    android:id="@+id/mainSwitcher"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
-    <Switch
-        android:id="@+id/service_status_switch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:enabled="false"
-        android:switchPadding="@dimen/switch_padding"
-        android:text="@string/service_status_text"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ListView
-        android:id="@+id/appList"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        app:layout_constraintBottom_toTopOf="@id/brightLbl"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/service_status_switch">
-    </ListView>
-
-    <TextView
-        android:id="@+id/brightLbl"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="341dp"
-        android:text="Brightness:"
-        app:layout_constraintBottom_toTopOf="@id/brightnessBar"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/appList" />
-
-    <SeekBar
-        android:id="@+id/brightnessBar"
+    <android.support.constraint.ConstraintLayout
+        android:id="@+id/notifsLayout"
         android:layout_width="match_parent"
-        android:layout_height="30dp"
-        android:layout_gravity="bottom"
-        android:max="255"
-        android:progress="128"
-        app:layout_constraintBottom_toBottomOf="parent" />
+        android:layout_height="match_parent"
+        tools:context=".MainActivity"
+        tools:showIn="@layout/app_bar_main">
 
-    <ProgressBar
-        android:id="@+id/progressBar_cyclic"
-        android:layout_width="wrap_content"
+        <Switch
+            android:id="@+id/service_status_switch"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:enabled="false"
+            android:switchPadding="@dimen/switch_padding"
+            android:text="@string/service_status_text"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <ListView
+            android:id="@+id/appList"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_marginTop="8dp"
+            app:layout_constraintBottom_toTopOf="@id/brightLbl"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/service_status_switch"></ListView>
+
+        <TextView
+            android:id="@+id/brightLbl"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="341dp"
+            android:text="@string/brightnessLbl"
+            app:layout_constraintBottom_toTopOf="@id/brightnessBar"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/appList" />
+
+        <SeekBar
+            android:id="@+id/brightnessBar"
+            android:layout_width="match_parent"
+            android:layout_height="30dp"
+            android:layout_gravity="bottom"
+            android:max="255"
+            android:progress="128"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <ProgressBar
+            android:id="@+id/progressBar_cyclic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginEnd="5dp"
+            android:layout_weight="1"
+            android:minWidth="90dp"
+            android:minHeight="90dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@+id/appList"
+            app:layout_constraintEnd_toEndOf="@id/appList"
+            app:layout_constraintStart_toStartOf="@id/appList"
+            app:layout_constraintTop_toTopOf="@+id/appList" />
+
+        <CheckBox
+            android:id="@+id/systemAppsChk"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/system_app_checkbox"
+            app:layout_constraintBottom_toTopOf="@+id/appList"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+    </android.support.constraint.ConstraintLayout>
+
+    <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="fill_parent"
+        android:layout_height="fill_parent"
+        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+
+    <android.support.constraint.ConstraintLayout
+        android:id="@+id/effectsLayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginEnd="5dp"
-        android:layout_weight="1"
-        android:minWidth="90dp"
-        android:minHeight="90dp"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="@+id/appList"
-        app:layout_constraintEnd_toEndOf="@id/appList"
-        app:layout_constraintStart_toStartOf="@id/appList"
-        app:layout_constraintTop_toTopOf="@+id/appList"/>
+        tools:context=".MainActivity"
+        tools:showIn="@layout/app_bar_main">
 
-    <CheckBox
-        android:id="@+id/systemAppsChk"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        android:text="@string/system_app_checkbox"
-        app:layout_constraintBottom_toTopOf="@+id/appList"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+            <TextView
+                android:id="@+id/effectsLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/passiveEffectLbl"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
-</android.support.constraint.ConstraintLayout>
+            <RadioGroup
+                android:id="@+id/passiveGroup"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginTop="8dp"
+                android:paddingBottom="16dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/effectsLbl">
+
+                <RadioButton
+                    android:id="@+id/noneRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/none_text" />
+
+                <RadioButton
+                    android:id="@+id/staticRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/static_text" />
+
+                <RadioButton
+                    android:id="@+id/pulsingRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/pulsing" />
+
+                <RadioButton
+                    android:id="@+id/rainbowRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/rainbow" />
+
+                <RadioButton
+                    android:id="@+id/pinWheelRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/pinwheel" />
+            </RadioGroup>
+
+            <TextView
+                android:id="@+id/effectColorLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="8dp"
+                android:text="@string/effectColorLbl"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/passiveGroup" />
+
+            <View
+                android:id="@+id/effectColorPick"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:layout_marginStart="32dp"
+                android:layout_marginTop="16dp"
+                android:background="#00FF00"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/effectColorLbl" />
+
+            <TextView
+                android:id="@+id/effectLengthLbl"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="16dp"
+                android:layout_marginTop="24dp"
+                android:text="@string/effectTimeLbl"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@+id/effectColorPick" />
+
+        <SeekBar
+            android:id="@+id/effectLengthBar"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="8dp"
+            android:max="10000"
+            android:progress="6000"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/effectLengthIndicator"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/effectLengthLbl" />
+
+            <EditText
+                android:id="@+id/effectLengthIndicator"
+                android:layout_width="64dp"
+                android:layout_height="48dp"
+                android:layout_marginEnd="24dp"
+                android:ems="10"
+                android:inputType="number"
+                android:text="6000"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/effectLengthBar" />
+    </android.support.constraint.ConstraintLayout>
+    </ScrollView>
+
+
+</ViewFlipper>

@@ -18,4 +18,15 @@
     <string name="failed_start">The service could not be started. Please ensure root access is available and that the request is accepted.</string>
     <string name="cancel">Cancel</string>
     <string name="remove_effect">Remove Effect</string>
+    <string name="notif_menu">Notifications</string>
+    <string name="effects">Effects</string>
+    <string name="brightnessLbl">Brightness:</string>
+    <string name="rainbow">Rainbow</string>
+    <string name="pinwheel">Pinwheel</string>
+    <string name="passiveEffectLbl">Passive Effect:</string>
+    <string name="none_text">None</string>
+    <string name="static_text">Static</string>
+    <string name="pulsing">Pulse</string>
+    <string name="effectColorLbl">Effect Color:</string>
+    <string name="effectTimeLbl">Effect Length:</string>
 </resources>
