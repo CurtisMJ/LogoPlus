@@ -93,8 +93,8 @@ public class MainActivity extends AppCompatActivity
                     editor.putBoolean("ServiceEnabled", false);
                     editor.apply();
                     AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
-                    errorBuilder.setTitle("Failed");
-                    errorBuilder.setMessage("The service could not be started. Please ensure root access is available and that the request is accepted.");
+                    errorBuilder.setTitle(R.string.failed);
+                    errorBuilder.setMessage(R.string.failed_start);
                     errorBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
 
                         @Override
@@ -147,7 +147,7 @@ public class MainActivity extends AppCompatActivity
                                 listAdapter.notifyDataSetChanged();
                             }
                         })
-                        .setNeutralButton("Remove Effect", new DialogInterface.OnClickListener() {
+                        .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 SharedPreferences.Editor  edit = settings.edit();
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity
                                 listAdapter.notifyDataSetChanged();
                             }
                         })
-                        .setNegativeButton("Cancel", null);
+                        .setNegativeButton(R.string.cancel, null);
                 AlertDialog pickerDialog = pickerBuilder.create();
                 pickerDialog.show();
             }

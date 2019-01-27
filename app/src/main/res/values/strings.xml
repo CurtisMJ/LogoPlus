@@ -13,4 +13,10 @@
     <string name="service_status_text">Service Enabled</string>
     <string name="system_app_checkbox">Show System Apps</string>
     <string name="oss_text">Open Source</string>
+    <string name="service_desc">Main service responsible for keeping a privileged shell open and controlling the logo lights</string>
+    <string name="notif_service_desc">Notification listener service responsible for keeping track of app notifications for which logo notifications are configured and communicates these to the main Logo+ service for execution</string>
+    <string name="failed">Failed</string>
+    <string name="failed_start">The service could not be started. Please ensure root access is available and that the request is accepted.</string>
+    <string name="cancel">Cancel</string>
+    <string name="remove_effect">Remove Effect</string>
 </resources>
