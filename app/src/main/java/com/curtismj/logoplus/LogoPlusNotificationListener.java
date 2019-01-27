@@ -1,9 +1,12 @@
 package com.curtismj.logoplus;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Color;
+import android.os.Message;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
@@ -14,12 +17,27 @@ import java.util.Set;
 
 public class LogoPlusNotificationListener extends NotificationListenerService {
     private SharedPreferences settings;
+    private BroadcastReceiver resyncReceiver;
 
     @Override
     public void onCreate() {
         super.onCreate();
         notifs = new HashMap<>();
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
+
+        IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
+        resyncReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.getAction().equals(LogoPlusService.START_BROADCAST)) {
+                    Log.d("debug", "main service starting, syncing state");
+                    Collection<Integer> vals = notifs.values();
+                    Integer[] colors = vals.toArray(new Integer[vals.size()]);
+                    notifyServiceChange(colors);
+                }
+            }
+        };
+        registerReceiver(resyncReceiver, intentFilter);
     }
 
     HashMap<String, Integer> notifs;
@@ -36,13 +54,10 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
     private  void notifyServiceChange(Integer[] colors)
     {
         Log.d("debug", "update notfis requested");
-        if (LogoPlusService.ServiceRunning) {
-            Log.d("debug", "update notfis in main service");
             Intent sendColor = new Intent(this, LogoPlusService.class);
             sendColor.putExtra("notif", true);
             sendColor.putExtra("colors", toPrimitive(colors));
             startService(sendColor);
-        }
     }
 
     @Override
@@ -68,5 +83,11 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
             Integer[] colors = vals.toArray(new Integer[vals.size()]);
             notifyServiceChange(colors);
         }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        unregisterReceiver(resyncReceiver);
     }
 }

@@ -33,12 +33,12 @@ public class LogoPlusService extends Service {
     public static final int NOTIF_PUSH = 1;
     public static final int ENTER_IDLE = 2;
     public static final int EXIT_IDLE = 3;
+    public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
+    public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
-    static volatile boolean ServiceRunning = false;
-    static final Object InteractiveSync = new Object();
-    static volatile boolean InteractiveStart = false;
+    private  boolean RootAvail = false;
     private Shell.Interactive rootSession = null;
     private String fadeoutBin;
     private PowerManager pm;
@@ -47,15 +47,40 @@ public class LogoPlusService extends Service {
     private  BroadcastReceiver offReceiver;
     private SharedPreferences settings;
 
+    public void failOut()
+    {
+        try
+        {
+            Log.d("debug", "failed start service");
+            Intent broadCastIntent = new Intent();
+            broadCastIntent.setAction(START_FAIL_BROADCAST);
+            sendBroadcast(broadCastIntent);
+            stopSelf();
+        }
+        catch (Exception ex)
+        {
+            ex.printStackTrace();
+        }
+    }
+
+    public void notifyStarted()
+    {
+        Intent broadCastIntent = new Intent();
+        broadCastIntent.setAction(START_BROADCAST);
+        sendBroadcast(broadCastIntent);
+    }
+
     public void enterIdle()
     {
         Log.d("debug", "enter idle state requested");
         if (inIdle) return;
         inIdle = true;
         Log.d("debug", "entering idle state");
+        rootSession.waitForIdle();
         rootSession.addCommand(new String[]{
                 fadeoutBin
         });
+        rootSession.waitForIdle();
     }
 
     // Handler that receives messages from the thread
@@ -70,6 +95,7 @@ public class LogoPlusService extends Service {
                 Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
 
                 rootSession = new Shell.Builder().
+                        setAutoHandler(false).
                         useSU().
                         setWantSTDERR(true).
                         setWatchdogTimeout(5).
@@ -79,31 +105,28 @@ public class LogoPlusService extends Service {
                             // Callback to report whether the shell was successfully started up
                             @Override
                             public void onCommandResult(int commandCode, int exitCode, List<String> output) {
-                                Log.d(BuildConfig.APPLICATION_ID, "Shell result: " + commandCode + "," + exitCode);
-                                if (exitCode != Shell.OnCommandResultListener.SHELL_RUNNING) {
-                                    Log.d(BuildConfig.APPLICATION_ID, "Root was denied. Service will shutdown");
-                                    ServiceRunning = false;
-                                    stopSelf();
-                                }
-                                else
-                                    ServiceRunning = true;
-
-                                rootSession.addCommand(new String[] {
-                                        "chmod +x " + fadeoutBin,
-                                        "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
-                                        "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
-                                        fadeoutBin
-                                });
-
-                                synchronized (InteractiveSync) {
-                                    if (InteractiveStart) {
-                                        InteractiveStart = false;
-                                        InteractiveSync.notifyAll();
-                                    }
-                                }
-                                Log.d(BuildConfig.APPLICATION_ID, "Service status" + ServiceRunning);
+                                Log.d("debug", "Shell result: " + commandCode + "," + exitCode);
+                                RootAvail =  (exitCode == Shell.OnCommandResultListener.SHELL_RUNNING);
                             }
                         });
+                Log.d("debug", "wait for root shell");
+                rootSession.waitForIdle();
+                if (RootAvail) {
+                    Log.d("debug", "got root");
+                    rootSession.addCommand(new String[]{
+                            "chmod +x " + fadeoutBin,
+                            "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
+                            "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
+                            fadeoutBin
+                    });
+                    rootSession.waitForIdle();
+                    notifyStarted();
+                }
+                else
+                {
+                    Log.d("debug", "root was denied");
+                    failOut();
+                }
             }
             else if ((msg.arg1 == NOTIF_PUSH) || (msg.arg1 == EXIT_IDLE))
             {
@@ -116,6 +139,7 @@ public class LogoPlusService extends Service {
                     if (latestNotifs.length > 0) {
                         Log.d("debug", "notifs loading");
                         String[] notifProgram = MicroCodeManager.notifyProgramBuild(latestNotifs);
+                        rootSession.waitForIdle();
                         rootSession.addCommand(new String[]{
                                 fadeoutBin,
                                 "echo \"" + notifProgram[3] + "\" > /sys/class/leds/lp5523:channel0/device/memory",
@@ -126,6 +150,7 @@ public class LogoPlusService extends Service {
                                 "echo \"" + settings.getInt("Brightness", 128) + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
                         });
                         inIdle = false;
+                        rootSession.waitForIdle();
                     }
                     else
                     {
@@ -163,10 +188,16 @@ public class LogoPlusService extends Service {
         try {
             dumpFadeout(fadeoutBin);
         } catch (IOException e) {
-            e.printStackTrace();
+            failOut();
+            return;
         }
 
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
+        if (!settings.getBoolean("ServiceEnabled", false))
+        {
+            failOut();
+            return;
+        }
 
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
 
@@ -235,6 +266,5 @@ public class LogoPlusService extends Service {
         }
         unregisterReceiver(offReceiver);
         rootSession = null;
-        ServiceRunning = false;
     }
 }

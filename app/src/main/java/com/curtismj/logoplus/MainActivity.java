@@ -1,9 +1,11 @@
 package com.curtismj.logoplus;
 
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
@@ -16,8 +18,10 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Message;
 import android.support.v7.widget.DrawableUtils;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.support.design.widget.NavigationView;
@@ -56,6 +60,8 @@ public class MainActivity extends AppCompatActivity
     private ApplicationAdapter listAdapter = null;
     private SeekBar brightness;
     int iconWidth;
+    private BroadcastReceiver statusReceiver;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,6 +80,36 @@ public class MainActivity extends AppCompatActivity
         navigationView.setNavigationItemSelectedListener(this);
 
         serviceStartIntent = new Intent(this,LogoPlusService.class);
+
+        IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
+        intentFilter.addAction(LogoPlusService.START_FAIL_BROADCAST);
+        statusReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (intent.getAction().equals(LogoPlusService.START_BROADCAST)) {
+                    serviceStatusSwitch.setEnabled(true);
+                } else if (intent.getAction().equals(LogoPlusService.START_FAIL_BROADCAST)) {
+                    SharedPreferences.Editor editor = settings.edit();
+                    editor.putBoolean("ServiceEnabled", false);
+                    editor.apply();
+                    AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
+                    errorBuilder.setTitle("Failed");
+                    errorBuilder.setMessage("The service could not be started. Please ensure root access is available and that the request is accepted.");
+                    errorBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            dialog.dismiss();
+                        }
+                    });
+                    AlertDialog errorDialog = errorBuilder.create();
+                    errorDialog.show();
+                    serviceStatusSwitch.setEnabled(true);
+                    serviceStatusSwitch.setChecked(false);
+                }
+            }
+        };
+        registerReceiver(statusReceiver, intentFilter);
 
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
         serviceStatusSwitch = (Switch)findViewById(R.id.service_status_switch);
@@ -167,6 +203,12 @@ public class MainActivity extends AppCompatActivity
     }
 
     @Override
+    protected void onDestroy() {
+        unregisterReceiver(statusReceiver);
+        super.onDestroy();
+    }
+
+    @Override
     public void onBackPressed() {
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
@@ -250,7 +292,7 @@ public class MainActivity extends AppCompatActivity
                 info.icon = bitmap.copy(Bitmap.Config.ARGB_8888, false);
                 info.label = info.info.loadLabel(packageManager).toString();
             }
-
+            bitmap.recycle();
             listAdapter.appsList.sort(new Comparator<ApplicationAdapter.AppInfoWrap>() {
                 @Override
                 public int compare(ApplicationAdapter.AppInfoWrap o1, ApplicationAdapter.AppInfoWrap o2) {
@@ -278,58 +320,17 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private class WaitForService extends AsyncTask<Void, Void, Boolean> {
-        @Override
-        protected Boolean doInBackground(Void... voids) {
-            synchronized (LogoPlusService.InteractiveSync) {
-                if (LogoPlusService.InteractiveStart) {
-                    try {
-                        LogoPlusService.InteractiveSync.wait(60000);
-                    } catch (InterruptedException e) {
-                    }
-                }
-            }
-
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putBoolean("ServiceEnabled", LogoPlusService.ServiceRunning);
-            editor.commit();
-            return LogoPlusService.ServiceRunning;
-        }
-
-        @Override
-        protected void onPostExecute(Boolean result) {
-            serviceStatusSwitch.setEnabled(true);
-            serviceStatusSwitch.setChecked(result);
-
-            if (!result)
-            {
-                AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
-                errorBuilder.setTitle("Failed");
-                errorBuilder.setMessage("The service could not be started. Please ensure root access is available and that the request is accepted.");
-                errorBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-                AlertDialog errorDialog = errorBuilder.create();
-                errorDialog.show();
-            }
-        }
-    }
-
-
     private  void setServiceStatus(boolean status)
     {
-        if (status && !LogoPlusService.ServiceRunning)
+        if (status)
         {
             serviceStatusSwitch.setEnabled(false);
-            LogoPlusService.InteractiveStart = true;
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putBoolean("ServiceEnabled", true);
+            editor.commit();
             startService(serviceStartIntent);
-            (new WaitForService()).execute();
         }
-        else if (!status && LogoPlusService.ServiceRunning)
+        else if (!status)
         {
             stopService(serviceStartIntent);
             SharedPreferences.Editor editor = settings.edit();
