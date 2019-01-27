@@ -6,14 +6,12 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Color;
-import android.os.Message;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
 
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Set;
 
 public class LogoPlusNotificationListener extends NotificationListenerService {
     private SharedPreferences settings;
@@ -31,9 +29,7 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
             public void onReceive(Context context, Intent intent) {
                 if (intent.getAction().equals(LogoPlusService.START_BROADCAST)) {
                     Log.d("debug", "main service starting, syncing state");
-                    Collection<Integer> vals = notifs.values();
-                    Integer[] colors = vals.toArray(new Integer[vals.size()]);
-                    notifyServiceChange(colors);
+                    notifyServiceChange();
                 }
             }
         };
@@ -51,9 +47,11 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
         return result;
     }
 
-    private  void notifyServiceChange(Integer[] colors)
+    private  void notifyServiceChange()
     {
         Log.d("debug", "update notfis requested");
+        Collection<Integer> vals = notifs.values();
+        Integer[] colors = vals.toArray(new Integer[vals.size()]);
             Intent sendColor = new Intent(this, LogoPlusService.class);
             sendColor.putExtra("notif", true);
             sendColor.putExtra("colors", toPrimitive(colors));
@@ -67,9 +65,7 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
             {
                 if (!settings.contains(key) || notifs.containsKey(key)) return;
                 notifs.put(key, settings.getInt(key, Color.RED));
-                Collection<Integer> vals = notifs.values();
-                Integer[] colors = vals.toArray(new Integer[vals.size()]);
-                notifyServiceChange(colors);
+                notifyServiceChange();
             }
     }
 
@@ -79,9 +75,7 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
         synchronized (notifs)
         {
             if (notifs.containsKey(key)) notifs.remove(key);
-            Collection<Integer> vals = notifs.values();
-            Integer[] colors = vals.toArray(new Integer[vals.size()]);
-            notifyServiceChange(colors);
+            notifyServiceChange();
         }
     }
 

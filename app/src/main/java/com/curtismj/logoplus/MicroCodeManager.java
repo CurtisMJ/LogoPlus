@@ -1,7 +1,5 @@
 package com.curtismj.logoplus;
 
-import android.util.Log;
-
 class MicroCodeManager {
     public static class LP55xProgram
     {

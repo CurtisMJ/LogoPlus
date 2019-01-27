@@ -10,27 +10,22 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
-import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.Message;
-import android.support.v7.widget.DrawableUtils;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import android.util.TypedValue;
-import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.MenuItem;
+import android.view.View;
 import android.widget.AdapterView;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -38,8 +33,8 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.Switch;
-import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 
+import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 import com.rarepebble.colorpicker.ColorPickerView;
 
 import java.util.ArrayList;
@@ -327,7 +322,7 @@ public class MainActivity extends AppCompatActivity
             serviceStatusSwitch.setEnabled(false);
             SharedPreferences.Editor editor = settings.edit();
             editor.putBoolean("ServiceEnabled", true);
-            editor.commit();
+            editor.commit(); // We need to be sure the setting is stored before the service starts or it will fail
             startService(serviceStartIntent);
         }
         else if (!status)

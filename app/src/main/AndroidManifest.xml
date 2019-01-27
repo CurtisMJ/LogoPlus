@@ -30,8 +30,7 @@
 
         <service android:name=".LogoPlusNotificationListener"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:process=":NotificationListenerProcess"
-            android:description="@string/notif_service_desc">
+            android:process=":NotificationListenerProcess">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
