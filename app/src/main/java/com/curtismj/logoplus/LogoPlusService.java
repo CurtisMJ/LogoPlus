@@ -40,11 +40,12 @@ public class LogoPlusService extends Service {
     private String fadeoutBin;
     private PowerManager pm;
     private int[] latestNotifs = new int[0];
-    private  boolean inIdle = true;
+    private  boolean inIdle = false;
+    private  boolean inEffectOn = false;
     private  BroadcastReceiver offReceiver;
     private SharedPreferences settings;
 
-    public void failOut()
+    private void failOut()
     {
         try
         {
@@ -60,22 +61,61 @@ public class LogoPlusService extends Service {
         }
     }
 
-    public void notifyStarted()
+    private void notifyStarted()
     {
         Intent broadCastIntent = new Intent();
         broadCastIntent.setAction(START_BROADCAST);
         sendBroadcast(broadCastIntent);
     }
 
-    public void enterIdle()
+    public void  runEffect()
+    {
+        Log.d("debug", "effect start");
+        if (!inEffectOn) {
+            inEffectOn = true;
+            runProgram(MicroCodeManager.rainbowProgramBuild(6000f, false));
+        }
+    }
+
+    private void enterIdle()
     {
         Log.d("debug", "enter idle state requested");
-        if (inIdle) return;
-        inIdle = true;
-        Log.d("debug", "entering idle state");
+        if (!inIdle) {
+            inIdle = true;
+            Log.d("debug", "entering idle state");
+            rootSession.waitForIdle();
+            rootSession.addCommand(new String[]{
+                    fadeoutBin
+            });
+            rootSession.waitForIdle();
+        }
+        if (pm.isInteractive())
+        {
+            Log.d("debug", "interactive idle, effect must run");
+            runEffect();
+        }
+        else
+        {
+            inEffectOn = false;
+            rootSession.waitForIdle();
+            rootSession.addCommand(new String[]{
+                    fadeoutBin
+            });
+            rootSession.waitForIdle();
+        }
+    }
+
+    private void runProgram(String[] program)
+    {
         rootSession.waitForIdle();
         rootSession.addCommand(new String[]{
-                fadeoutBin
+                fadeoutBin,
+                "echo \"" + program[3] + "\" > /sys/class/leds/lp5523:channel0/device/memory",
+                "echo \"" + program[0] + "\" > /sys/class/leds/lp5523:channel0/device/prog_1_start",
+                "echo \"" + program[1] + "\" > /sys/class/leds/lp5523:channel0/device/prog_2_start",
+                "echo \"" + program[2] + "\" > /sys/class/leds/lp5523:channel0/device/prog_3_start",
+                "echo \"1\" > /sys/class/leds/lp5523:channel0/device/run_engine",
+                "echo \"" + settings.getInt("Brightness", 128) + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
         });
         rootSession.waitForIdle();
     }
@@ -117,6 +157,7 @@ public class LogoPlusService extends Service {
                             fadeoutBin
                     });
                     rootSession.waitForIdle();
+                    enterIdle();
                     notifyStarted();
                 }
                 else
@@ -135,19 +176,9 @@ public class LogoPlusService extends Service {
                     Log.d("debug", "not interactive. proceed");
                     if (latestNotifs.length > 0) {
                         Log.d("debug", "notifs loading");
-                        String[] notifProgram = MicroCodeManager.notifyProgramBuild(latestNotifs);
-                        rootSession.waitForIdle();
-                        rootSession.addCommand(new String[]{
-                                fadeoutBin,
-                                "echo \"" + notifProgram[3] + "\" > /sys/class/leds/lp5523:channel0/device/memory",
-                                "echo \"" + notifProgram[0] + "\" > /sys/class/leds/lp5523:channel0/device/prog_1_start",
-                                "echo \"" + notifProgram[1] + "\" > /sys/class/leds/lp5523:channel0/device/prog_2_start",
-                                "echo \"" + notifProgram[2] + "\" > /sys/class/leds/lp5523:channel0/device/prog_3_start",
-                                "echo \"1\" > /sys/class/leds/lp5523:channel0/device/run_engine",
-                                "echo \"" + settings.getInt("Brightness", 128) + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
-                        });
                         inIdle = false;
-                        rootSession.waitForIdle();
+                        inEffectOn = false;
+                        runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
                     }
                     else
                     {

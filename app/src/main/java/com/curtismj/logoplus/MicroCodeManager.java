@@ -1,5 +1,7 @@
 package com.curtismj.logoplus;
 
+import android.os.PowerManager;
+
 class MicroCodeManager {
     public static class LP55xProgram
     {
@@ -60,7 +62,7 @@ class MicroCodeManager {
             return dw(0xE000 | (((e1 | (e2 << 1) | (e3 << 2)) & 0x3F) << (wait ? 7 : 1)));
         }
 
-        public byte wait(float msecs)
+        public byte wait(float msecs, int repeat)
         {
             float steps0 = Math.round(msecs / 0.488f);
             float steps1 = Math.round(msecs / 15.625f);
@@ -75,7 +77,13 @@ class MicroCodeManager {
             }
             int inst = (finalStepTime & 0x1F) << 9;
             if (preScale)  inst |=  0x4000;
-            return dw(inst);
+            byte addr = dw(inst);
+            repeat--;
+            for (int i = 0; i < repeat; i++)
+            {
+                dw(inst);
+            }
+            return addr;
         }
 
         public byte branch(int loops, int addr)
@@ -94,34 +102,82 @@ class MicroCodeManager {
         }
     }
 
-    public static String[] notifyProgramBuild(int[] colors)
+    public static String[] rainbowProgramBuild(float msecs, boolean pinwheel)
     {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
-        int max = Math.min(colors.length, 4); // LP5523 only has enough memory for 4 unique colors
-         byte eng1 = prog.dw(0x1C0);
-         byte eng2 = prog.dw(0x15);
-         byte eng3 = prog.dw(0x2A);
-         int channel;
+        byte eng1;
+        byte eng2;
+        byte eng3;
+
+        if (!pinwheel)
+        {
+            eng1 = prog.dw(0x1C0);
+            eng2 = prog.dw(0x15);
+            eng3 = prog.dw(0x2A);
+        }
+        else
+        {
+            eng1 = prog.dw(0x58);
+            eng2 = prog.dw(0xA1);
+            eng3 = prog.dw(0x106);
+        }
+
         byte prog1 = prog.muxMapAddr(eng1);
         prog.setPwm(0);
-         for (int i = 0; i < max; i++) {
-             channel = (colors[i] >> 16) & 0xFF;
+        prog.ramp(msecs, (byte) 0, 255);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.branch(0, 2);
 
-             prog.trigger(false, 0, 1, 1);
+        byte prog2 = prog.muxMapAddr(eng2);
+        prog.setPwm(0);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.ramp(msecs, (byte) 0, 255);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.branch(0, 2);
 
-             if (channel > 0) prog.ramp(600f, (byte) 0, channel);
-             else prog.wait(400f);
+        byte prog3 = prog.muxMapAddr(eng3);
+        prog.setPwm(0);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.ramp(msecs, (byte) 1, 255);
+        prog.ramp(msecs, (byte) 0, 255);
+        prog.branch(0, 2);
 
-             prog.trigger(true, 0, 1, 1);
-             prog.trigger(false, 0, 1, 1);
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
+    }
 
-             if (channel > 0) prog.ramp(600f, (byte) 1, channel);
-             else prog.wait(400f);
-             prog.trigger(true, 0, 1, 1);
-         }
-         byte delay = prog.wait(400f);
+    public static String[] notifyProgramBuild(int[] colors) {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+        int max = Math.min(colors.length, 4); // LP5523 only has enough memory for 4 unique colors
+        byte eng1 = prog.dw(0x1C0);
+        byte eng2 = prog.dw(0x15);
+        byte eng3 = prog.dw(0x2A);
+        int channel;
+        byte prog1 = prog.muxMapAddr(eng1);
+        prog.setPwm(0);
+        for (int i = 0; i < max; i++) {
+            channel = (colors[i] >> 16) & 0xFF;
+
+            prog.trigger(false, 0, 1, 1);
+
+            if (channel > 0) prog.ramp(600f, (byte) 0, channel);
+            else prog.wait(300f, 2);
+
+            prog.trigger(true, 0, 1, 1);
+            prog.trigger(false, 0, 1, 1);
+
+            if (channel > 0) prog.ramp(600f, (byte) 1, channel);
+            else prog.wait(300f, 2);
+            prog.trigger(true, 0, 1, 1);
+        }
+        byte delay = prog.wait(400f, 1);
         prog.branch(3, delay - prog1);
-         prog.branch(0, 2);
+        prog.branch(0, 2);
 
         byte prog2 = prog.muxMapAddr(eng2);
         prog.setPwm(0);
@@ -130,13 +186,13 @@ class MicroCodeManager {
             prog.trigger(true, 1, 0, 0);
 
             if (channel > 0) prog.ramp(600f, (byte) 0, channel);
-            else prog.wait(400f);
+            else prog.wait(300f, 2);
 
             prog.trigger(false, 1, 0, 0);
             prog.trigger(true, 1, 0, 0);
 
             if (channel > 0) prog.ramp(600f, (byte) 1, channel);
-            else prog.wait(400f);
+            else prog.wait(300f, 2);
             prog.trigger(false, 1, 0, 0);
         }
         prog.branch(0, 2);
@@ -148,18 +204,18 @@ class MicroCodeManager {
             prog.trigger(true, 1, 0, 0);
 
             if (channel > 0) prog.ramp(600f, (byte) 0, channel);
-            else prog.wait(400f);
+            else prog.wait(300f, 2);
 
             prog.trigger(false, 1, 0, 0);
             prog.trigger(true, 1, 0, 0);
 
             if (channel > 0) prog.ramp(600f, (byte) 1, channel);
-            else prog.wait(400f);
+            else prog.wait(300f, 2);
             prog.trigger(false, 1, 0, 0);
         }
         prog.branch(0, 2);
 
-        return new String[] {
+        return new String[]{
                 String.format("%02X", prog1),
                 String.format("%02X", prog2),
                 String.format("%02X", prog3),
