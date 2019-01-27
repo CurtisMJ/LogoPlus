@@ -44,6 +44,7 @@ public class LogoPlusService extends Service {
     private  boolean inEffectOn = false;
     private  BroadcastReceiver offReceiver;
     private SharedPreferences settings;
+    private PowerManager.WakeLock handlerLock;
 
     private void failOut()
     {
@@ -128,6 +129,7 @@ public class LogoPlusService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
+            handlerLock.acquire(10000);
             if (msg.arg1 == SERVICE_START) {
                 Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
 
@@ -192,7 +194,9 @@ public class LogoPlusService extends Service {
                 Log.d("debug", "idle requested by outside source");
                 enterIdle();
             }
+            handlerLock.release();
         }
+
 
     }
 
@@ -228,6 +232,8 @@ public class LogoPlusService extends Service {
         }
 
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+
+        handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
 
         HandlerThread thread = new HandlerThread("ServiceStartArguments",
                 Process.THREAD_PRIORITY_BACKGROUND);
