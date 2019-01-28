@@ -344,7 +344,7 @@ public class LogoPlusService extends Service {
     public void onDestroy() {
         if (mServiceHandler != null) mServiceLooper.quitSafely();
         if (rootSession != null) {
-            rootSession.kill();
+            rootSession.close();
         }
         if (offReceiver != null) unregisterReceiver(offReceiver);
         rootSession = null;
