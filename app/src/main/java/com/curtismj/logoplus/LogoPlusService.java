@@ -87,6 +87,11 @@ public class LogoPlusService extends Service {
             switch (settings.getInt("PassiveEffect", R.id.noneRadio))
             {
                 case EFFECT_NONE:
+                    rootSession.waitForIdle();
+                    rootSession.addCommand(new String[]{
+                            fadeoutBin
+                    });
+                    rootSession.waitForIdle();
                     break;
                 case EFFECT_STATIC:
                     runProgram(MicroCodeManager.staticProgramBuild(settings.getInt("PassiveColor", Color.GREEN)));
