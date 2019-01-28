@@ -8,6 +8,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import java.util.Collection;
@@ -16,13 +17,15 @@ import java.util.HashMap;
 public class LogoPlusNotificationListener extends NotificationListenerService {
     private SharedPreferences settings;
     private BroadcastReceiver resyncReceiver;
+    Intent sendColor;
 
     @Override
     public void onCreate() {
         super.onCreate();
-        notifs = new HashMap<>();
+        notifs = new ArrayMap<>();
         settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
-
+        sendColor = new Intent();
+        sendColor.setAction(LogoPlusService.SEND_EFFECT);
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
         resyncReceiver = new BroadcastReceiver() {
             @Override
@@ -36,7 +39,7 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
         registerReceiver(resyncReceiver, intentFilter);
     }
 
-    HashMap<String, Integer> notifs;
+    ArrayMap<String, Integer> notifs;
 
     public static int[] toPrimitive(Integer[] IntegerArray) {
 
@@ -47,15 +50,13 @@ public class LogoPlusNotificationListener extends NotificationListenerService {
         return result;
     }
 
-    private  void notifyServiceChange()
-    {
+    private  void notifyServiceChange() {
         Log.d("debug", "update notfis requested");
         Collection<Integer> vals = notifs.values();
         Integer[] colors = vals.toArray(new Integer[vals.size()]);
-            Intent sendColor = new Intent(this, LogoPlusService.class);
-            sendColor.putExtra("notif", true);
-            sendColor.putExtra("colors", toPrimitive(colors));
-            startService(sendColor);
+        sendColor.putExtra("notif", true);
+        sendColor.putExtra("colors", toPrimitive(colors));
+        sendBroadcast(sendColor);
     }
 
     @Override

@@ -36,6 +36,7 @@ public class LogoPlusService extends Service {
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
+    public static  final  String SEND_EFFECT = BuildConfig.APPLICATION_ID + ".SendEffect";
 
     public static final int EFFECT_NONE = 0;
     public static final int EFFECT_STATIC= 1;
@@ -293,6 +294,7 @@ public class LogoPlusService extends Service {
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_USER_PRESENT);
         intentFilter.addAction(APPLY_EFFECT);
+        intentFilter.addAction(SEND_EFFECT);
         offReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -313,6 +315,13 @@ public class LogoPlusService extends Service {
                     msg.arg1 = APPLY_EFFECT_MSG;
                     mServiceHandler.sendMessage(msg);
                 }
+                else if (intent.getAction().equals(SEND_EFFECT)) {
+                    Log.d("debug", "effect sent, applying");
+                    Message msg = mServiceHandler.obtainMessage();
+                    msg.arg1 = NOTIF_PUSH;
+                    msg.setData(intent.getExtras());
+                    mServiceHandler.sendMessage(msg);
+                }
             }
         };
         registerReceiver(offReceiver, intentFilter);
@@ -322,17 +331,6 @@ public class LogoPlusService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // If we get killed, after returning from here, restart
-        if ((mServiceHandler != null) && (intent != null))
-        {
-            if (intent.getBooleanExtra("notif", false)) {
-                Message msg = mServiceHandler.obtainMessage();
-                msg.arg1 = NOTIF_PUSH;
-                Bundle bundle = intent.getExtras();
-                msg.setData(bundle);
-                mServiceHandler.sendMessage(msg);
-            }
-        }
-
         return START_STICKY;
     }
 
