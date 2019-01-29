@@ -13,6 +13,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.os.Messenger;
 import android.os.PowerManager;
 import android.os.Process;
 import android.util.Log;
@@ -33,10 +34,10 @@ public class LogoPlusService extends Service {
     public static final int ENTER_IDLE = 2;
     public static final int EXIT_IDLE = 3;
     public static final int APPLY_EFFECT_MSG = 4;
+    public static final int START_BOUNCE = 5;
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
-    public static  final  String SEND_EFFECT = BuildConfig.APPLICATION_ID + ".SendEffect";
 
     public static final int EFFECT_NONE = 0;
     public static final int EFFECT_STATIC= 1;
@@ -46,6 +47,7 @@ public class LogoPlusService extends Service {
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
+    private Messenger mMessenger;
     private  boolean RootAvail = false;
     private Shell.Interactive rootSession = null;
     private String fadeoutBin;
@@ -80,19 +82,24 @@ public class LogoPlusService extends Service {
         sendBroadcast(broadCastIntent);
     }
 
+    private void blankLights()
+    {
+        rootSession.waitForIdle();
+        rootSession.addCommand(new String[]{
+                fadeoutBin
+        });
+        rootSession.waitForIdle();
+    }
+
     public void  runEffect()
     {
         Log.d("debug", "effect start");
         if (!inEffectOn) {
             inEffectOn = true;
-            switch (settings.getInt("PassiveEffect", R.id.noneRadio))
+            switch (settings.getInt("PassiveEffect", EFFECT_NONE))
             {
                 case EFFECT_NONE:
-                    rootSession.waitForIdle();
-                    rootSession.addCommand(new String[]{
-                            fadeoutBin
-                    });
-                    rootSession.waitForIdle();
+                    blankLights();
                     break;
                 case EFFECT_STATIC:
                     runProgram(MicroCodeManager.staticProgramBuild(settings.getInt("PassiveColor", Color.GREEN)));
@@ -117,11 +124,7 @@ public class LogoPlusService extends Service {
         if (!inIdle) {
             inIdle = true;
             Log.d("debug", "entering idle state");
-            rootSession.waitForIdle();
-            rootSession.addCommand(new String[]{
-                    fadeoutBin
-            });
-            rootSession.waitForIdle();
+            blankLights();
         }
         if (pm.isInteractive())
         {
@@ -131,11 +134,7 @@ public class LogoPlusService extends Service {
         else if (settings.getBoolean("PowerSave", true))
         {
             inEffectOn = false;
-            rootSession.waitForIdle();
-            rootSession.addCommand(new String[]{
-                    fadeoutBin
-            });
-            rootSession.waitForIdle();
+            blankLights();
         }
     }
 
@@ -163,85 +162,83 @@ public class LogoPlusService extends Service {
         @Override
         public void handleMessage(Message msg) {
             handlerLock.acquire(10000);
-            if (msg.arg1 == SERVICE_START) {
-                Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
+            switch (msg.what) {
+                case SERVICE_START:
+                    Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
+                    rootSession = new Shell.Builder().
+                            setAutoHandler(false).
+                            useSU().
+                            setWantSTDERR(true).
+                            setWatchdogTimeout(5).
+                            setMinimalLogging(true).
+                            open(new Shell.OnCommandResultListener() {
 
-                rootSession = new Shell.Builder().
-                        setAutoHandler(false).
-                        useSU().
-                        setWantSTDERR(true).
-                        setWatchdogTimeout(5).
-                        setMinimalLogging(true).
-                        open(new Shell.OnCommandResultListener() {
-
-                            // Callback to report whether the shell was successfully started up
-                            @Override
-                            public void onCommandResult(int commandCode, int exitCode, List<String> output) {
-                                Log.d("debug", "Shell result: " + commandCode + "," + exitCode);
-                                RootAvail =  (exitCode == Shell.OnCommandResultListener.SHELL_RUNNING);
-                            }
-                        });
-                Log.d("debug", "wait for root shell");
-                rootSession.waitForIdle();
-                if (RootAvail) {
-                    Log.d("debug", "got root");
-                    rootSession.addCommand(new String[]{
-                            "chmod +x " + fadeoutBin,
-                            "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
-                            "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
-                            fadeoutBin
-                    });
+                                // Callback to report whether the shell was successfully started up
+                                @Override
+                                public void onCommandResult(int commandCode, int exitCode, List<String> output) {
+                                    Log.d("debug", "Shell result: " + commandCode + "," + exitCode);
+                                    RootAvail = (exitCode == Shell.OnCommandResultListener.SHELL_RUNNING);
+                                }
+                            });
+                    Log.d("debug", "wait for root shell");
                     rootSession.waitForIdle();
-                    enterIdle();
-                    notifyStarted();
-                }
-                else
-                {
-                    Log.d("debug", "root was denied");
-                    failOut();
-                }
-            }
-            else if ((msg.arg1 == NOTIF_PUSH) || (msg.arg1 == EXIT_IDLE))
-            {
-                Log.d("debug", "notif update");
-                Bundle bundle = msg.getData();
-                latestNotifs = (msg.arg1 == NOTIF_PUSH) ? bundle.getIntArray("colors") : latestNotifs;
-                Log.d("debug", "notifs: " + latestNotifs.length);
-                if (!pm.isInteractive()) {
-                    Log.d("debug", "not interactive. proceed");
-                    if (latestNotifs.length > 0) {
-                        Log.d("debug", "notifs loading");
-                        inIdle = false;
-                        inEffectOn = false;
-                        runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
-                    }
-                    else
-                    {
-                        Log.d("debug", "request idle, no notifs");
+                    if (RootAvail) {
+                        Log.d("debug", "got root");
+                        rootSession.addCommand(new String[]{
+                                "chmod +x " + fadeoutBin,
+                                "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
+                                "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
+                                fadeoutBin
+                        });
+                        rootSession.waitForIdle();
                         enterIdle();
+                        notifyStarted();
+                    } else {
+                        Log.d("debug", "root was denied");
+                        failOut();
                     }
-                }
-            }
-            else if (msg.arg1 == ENTER_IDLE)
-            {
-                Log.d("debug", "idle requested by outside source");
-                enterIdle();
-            }
-            else if (msg.arg1 == APPLY_EFFECT_MSG)
-            {
-                Toast.makeText(LogoPlusService.this, "Applying effect", Toast.LENGTH_SHORT);
-                Log.d("debug", "updating effect");
-                if (inEffectOn)
-                {
-                    inEffectOn = false;
-                    Log.d("debug", "re-run effect");
-                    runEffect();
-                }
+                    break;
+
+                case NOTIF_PUSH:
+                case EXIT_IDLE:
+                    Log.d("debug", "notif update");
+                    Bundle bundle = msg.getData();
+                    latestNotifs = (msg.what == NOTIF_PUSH) ? bundle.getIntArray("colors") : latestNotifs;
+                    Log.d("debug", "notifs: " + latestNotifs.length);
+                    if (!pm.isInteractive()) {
+                        Log.d("debug", "not interactive. proceed");
+                        if (latestNotifs.length > 0) {
+                            Log.d("debug", "notifs loading");
+                            inIdle = false;
+                            inEffectOn = false;
+                            runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
+                        } else {
+                            Log.d("debug", "request idle, no notifs");
+                            enterIdle();
+                        }
+                    }
+                    break;
+
+                case ENTER_IDLE:
+                    Log.d("debug", "idle requested by outside source");
+                    enterIdle();
+                    break;
+
+                case APPLY_EFFECT_MSG:
+                    Log.d("debug", "updating effect");
+                    if (inEffectOn) {
+                        inEffectOn = false;
+                        Log.d("debug", "re-run effect");
+                        runEffect();
+                    }
+                    break;
+
+                case START_BOUNCE:
+                    notifyStarted();
+                    break;
             }
             handlerLock.release();
         }
-
-
     }
 
     public void dumpFadeout(String path) throws IOException {
@@ -258,8 +255,45 @@ public class LogoPlusService extends Service {
         myOutput.close();
     }
 
+    private static class LogoBroadcastReceiver extends   BroadcastReceiver {
+        private  Handler serviceHandler;
+
+        public LogoBroadcastReceiver(Handler handler)
+        {
+            serviceHandler = handler;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Message msg;
+            switch (intent.getAction()) {
+                case Intent.ACTION_SCREEN_OFF:
+                    Log.d("debug", "screen off, request service resume");
+                     msg = serviceHandler.obtainMessage(EXIT_IDLE);
+                    serviceHandler.sendMessage(msg);
+                    break;
+                case Intent.ACTION_USER_PRESENT:
+                    Log.d("debug", "user present, request service to idle");
+                    msg = serviceHandler.obtainMessage(ENTER_IDLE);
+                    serviceHandler.sendMessage(msg);
+                    break;
+                case APPLY_EFFECT:
+                    Log.d("debug", "effect update requested");
+                    msg = serviceHandler.obtainMessage(APPLY_EFFECT_MSG);
+                    serviceHandler.sendMessage(msg);
+                    break;
+                case LogoPlusNotificationListener.START_BROADCAST:
+                    Log.d("debug", "listener alive, echo");
+                    msg = serviceHandler.obtainMessage(START_BOUNCE);
+                    serviceHandler.sendMessage(msg);
+                    break;
+            }
+        }
+    }
+
     @Override
     public void onCreate() {
+
         fadeoutBin = getFilesDir() + "/fadeout";
         try {
             dumpFadeout(fadeoutBin);
@@ -286,44 +320,16 @@ public class LogoPlusService extends Service {
         // Get the HandlerThread's Looper and use it for our Handler
         mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(mServiceLooper);
+        mMessenger = new Messenger(mServiceHandler);
 
-        Message msg = mServiceHandler.obtainMessage();
-        msg.arg1 = SERVICE_START;
+        Message msg = mServiceHandler.obtainMessage(SERVICE_START);
         mServiceHandler.sendMessage(msg);
 
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_USER_PRESENT);
         intentFilter.addAction(APPLY_EFFECT);
-        intentFilter.addAction(SEND_EFFECT);
-        offReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                if (intent.getAction().equals(Intent.ACTION_SCREEN_OFF)) {
-                    Log.d("debug", "screen off, request service resume");
-                    Message msg = mServiceHandler.obtainMessage();
-                    msg.arg1 = EXIT_IDLE;
-                    mServiceHandler.sendMessage(msg);
-                } else if (intent.getAction().equals(Intent.ACTION_USER_PRESENT)) {
-                    Log.d("debug", "user present, request service to idle");
-                    Message msg = mServiceHandler.obtainMessage();
-                    msg.arg1 = ENTER_IDLE;
-                    mServiceHandler.sendMessage(msg);
-                }
-                else if (intent.getAction().equals(APPLY_EFFECT)) {
-                    Log.d("debug", "effect update requested");
-                    Message msg = mServiceHandler.obtainMessage();
-                    msg.arg1 = APPLY_EFFECT_MSG;
-                    mServiceHandler.sendMessage(msg);
-                }
-                else if (intent.getAction().equals(SEND_EFFECT)) {
-                    Log.d("debug", "effect sent, applying");
-                    Message msg = mServiceHandler.obtainMessage();
-                    msg.arg1 = NOTIF_PUSH;
-                    msg.setData(intent.getExtras());
-                    mServiceHandler.sendMessage(msg);
-                }
-            }
-        };
+        intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
+        offReceiver = new LogoBroadcastReceiver(mServiceHandler);
         registerReceiver(offReceiver, intentFilter);
 
     }
@@ -336,8 +342,7 @@ public class LogoPlusService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        // We don't provide binding, so return null
-        return null;
+        return mMessenger != null ? mMessenger.getBinder() : null;
     }
 
     @Override

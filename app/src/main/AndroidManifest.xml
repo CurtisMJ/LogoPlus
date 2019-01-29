@@ -27,11 +27,12 @@
             android:name=".LogoPlusService"
             android:enabled="true"
             android:exported="false"
+            android:process=":ServiceProcess"
             android:description="@string/service_desc"/>
 
         <service android:name=".LogoPlusNotificationListener"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:process=":NotificationListenerProcess">
+            android:process=":ServiceProcess"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
