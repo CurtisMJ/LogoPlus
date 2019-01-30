@@ -16,12 +16,17 @@ import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.support.design.widget.NavigationView;
-import android.support.v4.view.GravityCompat;
-import android.support.v4.widget.DrawerLayout;
-import android.support.v7.app.ActionBarDrawerToggle;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.Toolbar;
+
+import com.curtismj.logoplus.persist.AppNotification;
+import com.curtismj.logoplus.persist.LogoDao;
+import com.curtismj.logoplus.persist.LogoDatabase;
+import com.curtismj.logoplus.persist.UIState;
+import com.google.android.material.navigation.NavigationView;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.appcompat.app.ActionBarDrawerToggle;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
@@ -55,7 +60,6 @@ public class MainActivity extends AppCompatActivity
 
     Switch serviceStatusSwitch;
     Intent serviceStartIntent;
-    SharedPreferences settings;
     ListView appList;
     CheckBox showSystem;
     ProgressBar listSpinner;
@@ -70,12 +74,28 @@ public class MainActivity extends AppCompatActivity
     View effectColor;
     SeekBar effecLengthBar;
     EditText effectLengthIndicator;
+    LogoDatabase db;
+    LogoDao dao;
+    UIState state;
+
+    private  void syncUIState()
+    {
+
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_main);
+
+        db = LogoDatabase.getInstance(getApplicationContext());
+        dao = db.logoDao();
+        state = dao.getUIState();
+        if (state == null) {
+            state = new UIState();
+            dao.saveUIState(state);
+        }
 
         mainSwitcher = findViewById(R.id.mainSwitcher);
 
@@ -105,9 +125,8 @@ public class MainActivity extends AppCompatActivity
                     serviceStatusSwitch.setEnabled(true);
                     serviceStatusSwitch.setChecked(true);
                 } else if (intent.getAction().equals(LogoPlusService.START_FAIL_BROADCAST)) {
-                    SharedPreferences.Editor editor = settings.edit();
-                    editor.putBoolean("ServiceEnabled", false);
-                    editor.apply();
+                    state.serviceEnabled = false;
+                    dao.saveUIState(state);
                     AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
                     errorBuilder.setTitle(R.string.failed);
                     errorBuilder.setMessage(R.string.failed_start);
@@ -127,11 +146,10 @@ public class MainActivity extends AppCompatActivity
         };
         registerReceiver(statusReceiver, intentFilter);
 
-        settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
         MenuItem serviceSwitchItem = menu.findItem(R.id.service_status_switch);
         serviceStatusSwitch = serviceSwitchItem.getActionView().findViewWithTag("innerSwitch");
         serviceStatusSwitch.setEnabled(true);
-        serviceStatusSwitch.setChecked(settings.getBoolean("ServiceEnabled", false));
+        serviceStatusSwitch.setChecked(state.serviceEnabled);
         serviceStatusSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
@@ -145,7 +163,8 @@ public class MainActivity extends AppCompatActivity
             public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 final ColorPickerView picker = new ColorPickerView(MainActivity.this);
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
-                picker.setColor(settings.getInt("COLOR:" + info.info.packageName, Color.GREEN));
+                final AppNotification notif = dao.getAppNotification( info.info.packageName).onErrorReturnItem(new AppNotification( info.info.packageName)).blockingGet();
+                picker.setColor(notif.color);
                 picker.showAlpha(false);
                 picker.showHex(true);
                 picker.showPreview(true);
@@ -156,20 +175,16 @@ public class MainActivity extends AppCompatActivity
                         .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                final int color = picker.getColor();
-                                SharedPreferences.Editor  edit = settings.edit();
-                                edit.putInt("COLOR:" + info.info.packageName, color);
-                                edit.apply();
-                                listAdapter.appsList.get(position).color =  color;
+                                notif.color = picker.getColor();
+                                dao.addAppNotification(notif);
+                                listAdapter.appsList.get(position).color =  notif.color ;
                                 listAdapter.notifyDataSetChanged();
                             }
                         })
                         .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                SharedPreferences.Editor  edit = settings.edit();
-                                edit.remove("COLOR:" + info.info.packageName);
-                                edit.apply();
+                                dao.deleteAppNotification(notif);
                                 listAdapter.appsList.get(position).color = null;
                                 listAdapter.notifyDataSetChanged();
                             }
@@ -185,26 +200,23 @@ public class MainActivity extends AppCompatActivity
         listSpinner = findViewById(R.id.progressBar_cyclic);
         iconWidth =  (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 30f, metrics);
         showSystem = findViewById(R.id.systemAppsChk);
-        showSystem.setChecked(settings.getBoolean("ShowSysetmApps", false));
+        showSystem.setChecked(state.showSystemApps);
         showSystem.setOnCheckedChangeListener(new CheckBox.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 new LoadApplications().execute(isChecked);
-                SharedPreferences.Editor  edit = settings.edit();
-                edit.putBoolean("ShowSysetmApps", isChecked);
-                edit.apply();
+                state.showSystemApps = isChecked;
+                dao.saveUIState(state);
             }
         });
         new LoadApplications().execute(showSystem.isChecked());
 
         brightness = findViewById(R.id.brightnessBar);
-        brightness.setProgress(settings.getInt("Brightness", 128));
+        brightness.setProgress(state.brightness);
         brightness.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                SharedPreferences.Editor  edit = settings.edit();
-                edit.putInt("Brightness", progress);
-                edit.apply();
+                // TODO: Brightness
             }
 
             @Override
@@ -218,7 +230,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        viewSwitch(settings.getInt("CurrentView", 0));
+        viewSwitch(state.currentView);
 
         passiveGrp = findViewById(R.id.passiveGroup);
         passiveGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
@@ -232,13 +244,12 @@ public class MainActivity extends AppCompatActivity
                     case R.id.rainbowRadio: pref = LogoPlusService.EFFECT_RAINBOW; break;
                     case R.id.pinWheelRadio: pref = LogoPlusService.EFFECT_PINWHEEL; break;
                 }
-                SharedPreferences.Editor  edit = settings.edit();
-                edit.putInt("PassiveEffect", pref);
-                edit.apply();
+                state.passiveEffect = pref;
+                dao.saveUIState(state);
             }
         });
         RadioButton selectedButton = passiveGrp.findViewById(R.id.noneRadio);
-        switch (settings.getInt("PassiveEffect", LogoPlusService.EFFECT_NONE)) {
+        switch (state.passiveEffect) {
             case LogoPlusService.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.noneRadio); break;
             case LogoPlusService.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
             case LogoPlusService.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
@@ -246,12 +257,12 @@ public class MainActivity extends AppCompatActivity
         }
         selectedButton.setChecked(true);
         effectColor = findViewById(R.id.effectColorPick);
-        effectColor.setBackgroundColor(settings.getInt("PassiveColor", Color.GREEN));
+        effectColor.setBackgroundColor(state.passiveColor);
         effectColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 final ColorPickerView picker = new ColorPickerView(MainActivity.this);
-                picker.setColor(settings.getInt("PassiveColor", Color.GREEN));
+                picker.setColor(state.passiveColor);
                 picker.showAlpha(false);
                 picker.showHex(true);
                 picker.showPreview(true);
@@ -263,9 +274,8 @@ public class MainActivity extends AppCompatActivity
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 final int color = picker.getColor();
-                                SharedPreferences.Editor  edit = settings.edit();
-                                edit.putInt("PassiveColor", color);
-                                edit.apply();
+                                state.passiveColor = color;
+                                dao.saveUIState(state);
                                 effectColor.setBackgroundColor(color);
                             }
                         })
@@ -277,14 +287,15 @@ public class MainActivity extends AppCompatActivity
 
         effecLengthBar = findViewById(R.id.effectLengthBar);
         effectLengthIndicator = findViewById(R.id.effectLengthIndicator);
-        effecLengthBar.setProgress(settings.getInt("EffectLength", 6000));
+        effecLengthBar.setProgress((int)state.effectLength);
         effectLengthIndicator.setText(Integer.toString(effecLengthBar.getProgress()));
         effecLengthBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                SharedPreferences.Editor  edit = settings.edit();
-                edit.putInt("EffectLength", progress);
-                edit.apply();
+                //           TODO: Effect length
+                //state.effectLength = progress;
+                //
+                //dao.saveUIState(state);
                if (fromUser) effectLengthIndicator.setText(Integer.toString(progress));
             }
 
@@ -320,13 +331,12 @@ public class MainActivity extends AppCompatActivity
         });
 
         Switch pwrSaveSwitch = findViewById(R.id.powerSaveSwitch);
-        pwrSaveSwitch.setChecked(settings.getBoolean("PowerSave", true));
+        pwrSaveSwitch.setChecked(state.powerSave);
         pwrSaveSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-                SharedPreferences.Editor  edit = settings.edit();
-                edit.putBoolean("PowerSave", isChecked);
-                edit.apply();
+                state.powerSave = isChecked;
+                dao.saveUIState(state);
             }
         });
 
@@ -359,9 +369,8 @@ public class MainActivity extends AppCompatActivity
 
     public void viewSwitch(int id)
     {
-        SharedPreferences.Editor  edit = settings.edit();
-        edit.putInt("CurrentView", id);
-        edit.apply();
+       state.currentView = id;
+       dao.saveUIState(state);
         mainSwitcher.setDisplayedChild(id);
         switch (id)
         {
@@ -452,7 +461,7 @@ public class MainActivity extends AppCompatActivity
             Bitmap bitmap = Bitmap.createBitmap( iconWidth, iconWidth, Bitmap.Config.ARGB_8888);
             Canvas canvas = new Canvas(bitmap);
             for (ApplicationAdapter.AppInfoWrap info : listAdapter.appsList) {
-                info.color = settings.contains("COLOR:" + info.info.packageName) ? settings.getInt("COLOR:" + info.info.packageName, 0) : null;
+                info.color = dao.getAppNotification(info.info.packageName).onErrorReturnItem(new AppNotification()).blockingGet().color;
                 Drawable icon = info.info.loadIcon(packageManager);
                 icon.setBounds(0, 0, iconWidth, iconWidth);
                 canvas.drawColor(Color.WHITE, PorterDuff.Mode.CLEAR);
@@ -493,17 +502,15 @@ public class MainActivity extends AppCompatActivity
         if (status)
         {
             serviceStatusSwitch.setEnabled(false);
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putBoolean("ServiceEnabled", true);
-            editor.commit(); // We need to be sure the setting is stored before the service starts or it will fail
+            state.serviceEnabled = true;
+            dao.saveUIState(state);
             startService(serviceStartIntent);
         }
         else if (!status)
         {
             stopService(serviceStartIntent);
-            SharedPreferences.Editor editor = settings.edit();
-            editor.putBoolean("ServiceEnabled", false);
-            editor.apply();
+            state.serviceEnabled = false;
+            dao.saveUIState(state);
         }
     }
 

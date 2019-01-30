@@ -19,12 +19,19 @@ import android.os.Process;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.curtismj.logoplus.persist.LogoDao;
+import com.curtismj.logoplus.persist.LogoDatabase;
+import com.curtismj.logoplus.persist.UIState;
+
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Set;
 
+import androidx.annotation.NonNull;
+import androidx.room.InvalidationTracker;
 import eu.chainfire.libsuperuser.Shell;
 
 
@@ -56,8 +63,16 @@ public class LogoPlusService extends Service {
     private  boolean inIdle = false;
     private  boolean inEffectOn = false;
     private  BroadcastReceiver offReceiver;
-    private SharedPreferences settings;
     private PowerManager.WakeLock handlerLock;
+    private LogoDatabase db;
+    private LogoDao dao;
+    private UIState state;
+
+    private void fetchState()
+    {
+        Log.d("debug", "db invalidated, refetching state");
+        state = dao.getUIState();
+    }
 
     private void failOut()
     {
@@ -96,22 +111,22 @@ public class LogoPlusService extends Service {
         Log.d("debug", "effect start");
         if (!inEffectOn) {
             inEffectOn = true;
-            switch (settings.getInt("PassiveEffect", EFFECT_NONE))
+            switch (state.passiveEffect)
             {
                 case EFFECT_NONE:
                     blankLights();
                     break;
                 case EFFECT_STATIC:
-                    runProgram(MicroCodeManager.staticProgramBuild(settings.getInt("PassiveColor", Color.GREEN)));
+                    runProgram(MicroCodeManager.staticProgramBuild(state.passiveColor));
                     break;
                 case EFFECT_PULSE:
-                    runProgram(MicroCodeManager.pulseProgramBuild((float)settings.getInt("EffectLength", 6000),settings.getInt("PassiveColor", Color.GREEN)));
+                    runProgram(MicroCodeManager.pulseProgramBuild(state.effectLength,state.passiveColor));
                     break;
                 case EFFECT_RAINBOW:
-                    runProgram(MicroCodeManager.rainbowProgramBuild((float)settings.getInt("EffectLength", 6000), false));
+                    runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, false));
                     break;
                 case EFFECT_PINWHEEL:
-                    runProgram(MicroCodeManager.rainbowProgramBuild((float)settings.getInt("EffectLength", 6000), true));
+                    runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, true));
                     break;
             }
 
@@ -131,7 +146,7 @@ public class LogoPlusService extends Service {
             Log.d("debug", "interactive idle, effect must run");
             runEffect();
         }
-        else if (settings.getBoolean("PowerSave", true))
+        else if (state.powerSave)
         {
             inEffectOn = false;
             blankLights();
@@ -148,7 +163,7 @@ public class LogoPlusService extends Service {
                 "echo \"" + program[1] + "\" > /sys/class/leds/lp5523:channel0/device/prog_2_start",
                 "echo \"" + program[2] + "\" > /sys/class/leds/lp5523:channel0/device/prog_3_start",
                 "echo \"1\" > /sys/class/leds/lp5523:channel0/device/run_engine",
-                "echo \"" + settings.getInt("Brightness", 128) + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
+                "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
         });
         rootSession.waitForIdle();
     }
@@ -161,13 +176,15 @@ public class LogoPlusService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
-            handlerLock.acquire(10000);
+
+            // NB: Only acquire wakelock in the process of applying effects, bureaucracy can wait
+
             switch (msg.what) {
                 case SERVICE_START:
                     Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
                     rootSession = new Shell.Builder().
                             setAutoHandler(false).
-                            useSU().
+                            setShell("/garden/xbin_bind/su").
                             setWantSTDERR(true).
                             setWatchdogTimeout(5).
                             setMinimalLogging(true).
@@ -183,6 +200,7 @@ public class LogoPlusService extends Service {
                     Log.d("debug", "wait for root shell");
                     rootSession.waitForIdle();
                     if (RootAvail) {
+                        handlerLock.acquire(10000);
                         Log.d("debug", "got root");
                         rootSession.addCommand(new String[]{
                                 "chmod +x " + fadeoutBin,
@@ -192,6 +210,7 @@ public class LogoPlusService extends Service {
                         });
                         rootSession.waitForIdle();
                         enterIdle();
+                        handlerLock.release();
                         notifyStarted();
                     } else {
                         Log.d("debug", "root was denied");
@@ -201,6 +220,7 @@ public class LogoPlusService extends Service {
 
                 case NOTIF_PUSH:
                 case EXIT_IDLE:
+                    handlerLock.acquire(10000);
                     Log.d("debug", "notif update");
                     Bundle bundle = msg.getData();
                     latestNotifs = (msg.what == NOTIF_PUSH) ? bundle.getIntArray("colors") : latestNotifs;
@@ -217,27 +237,32 @@ public class LogoPlusService extends Service {
                             enterIdle();
                         }
                     }
+                    handlerLock.release();
                     break;
 
                 case ENTER_IDLE:
+                    handlerLock.acquire(10000);
                     Log.d("debug", "idle requested by outside source");
                     enterIdle();
+                    handlerLock.release();
                     break;
 
                 case APPLY_EFFECT_MSG:
+                    handlerLock.acquire(10000);
                     Log.d("debug", "updating effect");
                     if (inEffectOn) {
                         inEffectOn = false;
                         Log.d("debug", "re-run effect");
                         runEffect();
                     }
+                    handlerLock.release();
                     break;
 
                 case START_BOUNCE:
                     notifyStarted();
                     break;
             }
-            handlerLock.release();
+
         }
     }
 
@@ -291,6 +316,25 @@ public class LogoPlusService extends Service {
         }
     }
 
+    private static class InvalidationTracker extends androidx.room.InvalidationTracker.Observer
+    {
+        public InvalidationTracker(@NonNull String[] tables) {
+            super(tables);
+        }
+
+        @Override
+        public void onInvalidated(@NonNull Set<String> tables) {
+
+        }
+    }
+
+    private androidx.room.InvalidationTracker.Observer observer = new androidx.room.InvalidationTracker.Observer( "UIState") {
+        @Override
+        public void onInvalidated(@NonNull Set<String> tables) {
+            if (dao != null) fetchState();
+        }
+    };
+
     @Override
     public void onCreate() {
 
@@ -302,13 +346,15 @@ public class LogoPlusService extends Service {
             return;
         }
 
-        settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
-        if (!settings.getBoolean("ServiceEnabled", false))
+        db = LogoDatabase.getInstance(getApplicationContext());
+        dao = db.logoDao();
+        fetchState();
+        if (state == null || !state.serviceEnabled)
         {
             stopSelf();
             return;
         }
-
+        db.getInvalidationTracker().addObserver(observer);
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
 
         handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
@@ -353,5 +399,8 @@ public class LogoPlusService extends Service {
         }
         if (offReceiver != null) unregisterReceiver(offReceiver);
         rootSession = null;
+        db.getInvalidationTracker().removeObserver(observer);
+        dao = null;
+        db = null;
     }
 }

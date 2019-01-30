@@ -9,7 +9,7 @@ android {
         targetSdkVersion 28
         versionCode 3
         versionName "1.0.2"
-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
         release {
@@ -37,13 +37,19 @@ android {
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
-    implementation 'com.android.support:appcompat-v7:28.0.0'
-    implementation 'com.android.support:support-v4:28.0.0'
-    implementation 'com.android.support:design:28.0.0'
-    implementation 'com.android.support.constraint:constraint-layout:1.1.3'
+    implementation 'androidx.appcompat:appcompat:1.0.0-beta01'
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0-beta01'
+    implementation 'com.google.android.material:material:1.0.0-beta01'
+    implementation 'androidx.constraintlayout:constraintlayout:1.1.2'
     implementation  'eu.chainfire:libsuperuser:1.0.0.+'
     implementation 'com.rarepebble:colorpicker:2.4.2'
     implementation 'com.google.android.gms:play-services-oss-licenses:16.0.2'
+    def room_version = "2.1.0-alpha04"
+
+    implementation "androidx.room:room-runtime:$room_version"
+    annotationProcessor "androidx.room:room-compiler:$room_version" // use kapt for Kotlin
+
+    implementation "androidx.room:room-rxjava2:$room_version"
 }
 
 
