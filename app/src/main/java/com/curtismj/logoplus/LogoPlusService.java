@@ -136,6 +136,7 @@ public class LogoPlusService extends Service {
     private void enterIdle()
     {
         Log.d("debug", "enter idle state requested");
+        fetchState();
         if (!inIdle) {
             inIdle = true;
             Log.d("debug", "entering idle state");
@@ -253,6 +254,7 @@ public class LogoPlusService extends Service {
                     if (inEffectOn) {
                         inEffectOn = false;
                         Log.d("debug", "re-run effect");
+                        fetchState();
                         runEffect();
                     }
                     handlerLock.release();
@@ -316,25 +318,6 @@ public class LogoPlusService extends Service {
         }
     }
 
-    private static class InvalidationTracker extends androidx.room.InvalidationTracker.Observer
-    {
-        public InvalidationTracker(@NonNull String[] tables) {
-            super(tables);
-        }
-
-        @Override
-        public void onInvalidated(@NonNull Set<String> tables) {
-
-        }
-    }
-
-    private androidx.room.InvalidationTracker.Observer observer = new androidx.room.InvalidationTracker.Observer( "UIState") {
-        @Override
-        public void onInvalidated(@NonNull Set<String> tables) {
-            if (dao != null) fetchState();
-        }
-    };
-
     @Override
     public void onCreate() {
 
@@ -354,7 +337,6 @@ public class LogoPlusService extends Service {
             stopSelf();
             return;
         }
-        db.getInvalidationTracker().addObserver(observer);
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
 
         handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
@@ -399,7 +381,6 @@ public class LogoPlusService extends Service {
         }
         if (offReceiver != null) unregisterReceiver(offReceiver);
         rootSession = null;
-        db.getInvalidationTracker().removeObserver(observer);
         dao = null;
         db = null;
     }

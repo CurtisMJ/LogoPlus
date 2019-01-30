@@ -23,7 +23,6 @@ public abstract class LogoDatabase extends RoomDatabase {
                 INSTANCE = Room.databaseBuilder(context.getApplicationContext(),
                         LogoDatabase.class, "logo.db")
                         .allowMainThreadQueries()
-                        .enableMultiInstanceInvalidation()
                         .build();
             }
             return INSTANCE;
