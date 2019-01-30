@@ -18,14 +18,19 @@ import android.service.notification.StatusBarNotification;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.curtismj.logoplus.persist.AppNotification;
+import com.curtismj.logoplus.persist.LogoDao;
+import com.curtismj.logoplus.persist.LogoDatabase;
+
 
 public class LogoPlusNotificationListener extends NotificationListenerService implements  ServiceConnection {
-    private SharedPreferences settings;
     private BroadcastReceiver resyncReceiver;
     private Messenger mMessenger;
     private volatile boolean mBound = false;
     private volatile boolean everBound = false;
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ListenerServiceAlive";
+    private LogoDatabase db;
+    private LogoDao dao;
 
     public void onServiceConnected(ComponentName className, IBinder service) {
         Log.d("debug", "remote service connecting");
@@ -64,7 +69,8 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
         super.onListenerConnected();
         Log.d("debug", "notification listener is starting");
         notifs = new ArrayMap<>();
-        settings = getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
+        db = LogoDatabase.getInstance(getApplicationContext());
+        dao = db.logoDao();
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
         resyncReceiver = new ResyncReceiver(this);
         registerReceiver(resyncReceiver, intentFilter);
@@ -81,6 +87,8 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
         notifs.clear();
         notifyServiceChange();
         if (everBound) unbindService(this);
+        db = null;
+        dao = null;
     }
 
     ArrayMap<String, Integer> notifs;
@@ -108,23 +116,27 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn){
-            String key = "COLOR:" + sbn.getPackageName();
-            Log.d("debug", "notif" + key);
             synchronized (notifs)
             {
-                if (!settings.contains(key) || notifs.containsKey(key)) return;
-                notifs.put(key, settings.getInt(key, Color.RED));
-                notifyServiceChange();
+                AppNotification notif = dao.getAppNotification(sbn.getPackageName()).onErrorReturnItem(new AppNotification()).blockingGet();
+                if (notif.color != null) {
+                    notifs.put(notif.packageName, notif.color);
+                    Log.d("debug", "notif" + notif.packageName);
+                    notifyServiceChange();
+                }
             }
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn){
-        String key = "COLOR:" + sbn.getPackageName();
+
         synchronized (notifs)
         {
-            if (notifs.containsKey(key)) notifs.remove(key);
-            notifyServiceChange();
+            String key = sbn.getPackageName();
+            if (notifs.containsKey(key)) {
+                notifs.remove(key);
+                notifyServiceChange();
+            }
         }
     }
 

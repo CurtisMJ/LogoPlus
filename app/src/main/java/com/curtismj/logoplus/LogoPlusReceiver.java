@@ -5,6 +5,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 
+import com.curtismj.logoplus.persist.LogoDatabase;
+import com.curtismj.logoplus.persist.UIState;
+
 public class LogoPlusReceiver extends BroadcastReceiver {
 
     @Override
@@ -13,8 +16,8 @@ public class LogoPlusReceiver extends BroadcastReceiver {
 
         if(Intent.ACTION_BOOT_COMPLETED.equals(action))
         {
-            SharedPreferences prefs = context.getSharedPreferences(BuildConfig.APPLICATION_ID + ".prefs", Context.MODE_PRIVATE);
-            if (prefs.getBoolean("ServiceEnabled", false)) {
+            UIState state = LogoDatabase.getInstance(context.getApplicationContext()).logoDao().getUIState();
+            if (state != null && state.serviceEnabled) {
                 Intent serviceStartIntent = new Intent(context, LogoPlusService.class);
                 context.startService(serviceStartIntent);
             }

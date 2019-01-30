@@ -163,8 +163,8 @@ public class MainActivity extends AppCompatActivity
             public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 final ColorPickerView picker = new ColorPickerView(MainActivity.this);
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
-                final AppNotification notif = dao.getAppNotification( info.info.packageName).onErrorReturnItem(new AppNotification( info.info.packageName)).blockingGet();
-                picker.setColor(notif.color);
+                final AppNotification notif = dao.getAppNotification( info.info.packageName).onErrorReturnItem(new AppNotification()).blockingGet();
+                picker.setColor(notif.color == null ? Color.GREEN : notif.color);
                 picker.showAlpha(false);
                 picker.showHex(true);
                 picker.showPreview(true);
@@ -176,6 +176,7 @@ public class MainActivity extends AppCompatActivity
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
                                 notif.color = picker.getColor();
+                                notif.packageName = info.info.packageName;
                                 dao.addAppNotification(notif);
                                 listAdapter.appsList.get(position).color =  notif.color ;
                                 listAdapter.notifyDataSetChanged();
@@ -184,7 +185,7 @@ public class MainActivity extends AppCompatActivity
                         .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                dao.deleteAppNotification(notif);
+                                if (notif.color != null) dao.deleteAppNotification(notif);
                                 listAdapter.appsList.get(position).color = null;
                                 listAdapter.notifyDataSetChanged();
                             }
