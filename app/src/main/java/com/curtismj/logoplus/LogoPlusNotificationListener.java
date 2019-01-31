@@ -6,12 +6,14 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
+import android.os.Process;
 import android.os.RemoteException;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
@@ -31,6 +33,11 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ListenerServiceAlive";
     private LogoDatabase db;
     private LogoDao dao;
+    private Looper mServiceLooper;
+    private ServiceHandler mServiceHandler;
+    public static final int SERVICE_START = 0;
+    public static final int NOTIF_POSTED = 1;
+    public static final int NOTIF_REMOVED = 2;
 
     public void onServiceConnected(ComponentName className, IBinder service) {
         Log.d("debug", "remote service connecting");
@@ -64,24 +71,68 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
         }
     }
 
+    private final class ServiceHandler extends Handler {
+        public ServiceHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case SERVICE_START:
+                    db = LogoDatabase.getInstance(getApplicationContext());
+                    dao = db.logoDao();
+                    break;
+
+                case NOTIF_POSTED:
+                    String pkg = (String) msg.obj;
+                    Log.d("debug", "notif" + pkg);
+                    AppNotification notif = dao.getAppNotification(pkg).onErrorReturnItem(new AppNotification()).blockingGet();
+                    if (notif.color != null) {
+                        notifs.put(notif.packageName, notif.color);
+                        notifyServiceChange();
+                    }
+                    break;
+
+                case NOTIF_REMOVED:
+                    String key = (String) msg.obj;
+                    if (notifs.containsKey(key)) {
+                        notifs.remove(key);
+                        notifyServiceChange();
+                    }
+                    break;
+            }
+        }
+    }
+
+
     @Override
     public void onListenerConnected() {
         super.onListenerConnected();
         Log.d("debug", "notification listener is starting");
         notifs = new ArrayMap<>();
-        db = LogoDatabase.getInstance(getApplicationContext());
-        dao = db.logoDao();
+
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
         resyncReceiver = new ResyncReceiver(this);
         registerReceiver(resyncReceiver, intentFilter);
         Intent broadCastIntent = new Intent();
         broadCastIntent.setAction(START_BROADCAST);
         sendBroadcast(broadCastIntent);
+
+        HandlerThread thread = new HandlerThread("ServiceStartArguments",
+                Process.THREAD_PRIORITY_BACKGROUND);
+        thread.start();
+        // Get the HandlerThread's Looper and use it for our Handler
+        mServiceLooper = thread.getLooper();
+        mServiceHandler = new ServiceHandler(mServiceLooper);
+        Message msg = mServiceHandler.obtainMessage(SERVICE_START);
+        mServiceHandler.sendMessage(msg);
     }
 
     @Override
     public void onListenerDisconnected() {
         super.onListenerDisconnected();
+        mServiceLooper.quitSafely();
         Log.d("debug", "notification listener is stopping");
         unregisterReceiver(resyncReceiver);
         notifs.clear();
@@ -116,28 +167,16 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
 
     @Override
     public void onNotificationPosted(StatusBarNotification sbn){
-            synchronized (notifs)
-            {
-                AppNotification notif = dao.getAppNotification(sbn.getPackageName()).onErrorReturnItem(new AppNotification()).blockingGet();
-                if (notif.color != null) {
-                    notifs.put(notif.packageName, notif.color);
-                    Log.d("debug", "notif" + notif.packageName);
-                    notifyServiceChange();
-                }
-            }
+        mServiceHandler = new ServiceHandler(mServiceLooper);
+        Message msg = mServiceHandler.obtainMessage(NOTIF_POSTED, sbn.getPackageName());
+        mServiceHandler.sendMessage(msg);
     }
 
     @Override
     public void onNotificationRemoved(StatusBarNotification sbn){
-
-        synchronized (notifs)
-        {
-            String key = sbn.getPackageName();
-            if (notifs.containsKey(key)) {
-                notifs.remove(key);
-                notifyServiceChange();
-            }
-        }
+        mServiceHandler = new ServiceHandler(mServiceLooper);
+        Message msg = mServiceHandler.obtainMessage(NOTIF_REMOVED, sbn.getPackageName());
+        mServiceHandler.sendMessage(msg);
     }
 
 }

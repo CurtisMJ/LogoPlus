@@ -6,7 +6,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -22,14 +21,23 @@ import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
 import com.curtismj.logoplus.persist.UIState;
 import com.google.android.material.navigation.NavigationView;
+
+import androidx.annotation.Nullable;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Process;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -59,7 +67,7 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
     Switch serviceStatusSwitch;
-    Intent serviceStartIntent;
+
     ListView appList;
     CheckBox showSystem;
     ProgressBar listSpinner;
@@ -77,27 +85,91 @@ public class MainActivity extends AppCompatActivity
     LogoDatabase db;
     LogoDao dao;
     UIState state;
+    Intent serviceStartIntent;
 
-    private  void syncUIState()
+    private  static final int UPDATE_UI_STATE = 0;
+    private  static final int ADD_NOTIF = 1;
+    private  static final int DELETE_NOTIF = 2;
+    private  static final int START_SERVICE = 3;
+
+    private  final class DbHandler extends Handler {
+
+        DbHandler(Looper looper, LogoDao myDao) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what)
+            {
+                case UPDATE_UI_STATE:
+                    dao.saveUIState((UIState)msg.obj);
+                    break;
+
+                case ADD_NOTIF:
+                    dao.addAppNotification((AppNotification)msg.obj);
+                    break;
+
+                case DELETE_NOTIF:
+                    dao.deleteAppNotification((String)msg.obj);
+                    break;
+
+                case START_SERVICE:
+                    state.serviceEnabled = true;
+                    dao.saveUIState(state);
+                    startService(serviceStartIntent);
+                    break;
+            }
+        }
+    }
+
+    Handler dbHandler;
+
+    private void syncUIState()
     {
-
+        Message msg = dbHandler.obtainMessage(UPDATE_UI_STATE, state);
+        dbHandler.sendMessage(msg);
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        new LoadTask().execute();
+    }
+
+    private class LoadTask extends  AsyncTask<Void, Void, Void>
+    {
+        @Override
+        protected Void doInBackground(Void... voids) {
+            db = LogoDatabase.getInstance(getApplicationContext());
+            dao = db.logoDao();
+
+            HandlerThread thread = new HandlerThread("",
+                    Process.THREAD_PRIORITY_BACKGROUND);
+            thread.start();
+            dbHandler = new DbHandler(thread.getLooper(), dao);
+
+            state = dao.getUIState();
+            if (state == null) {
+                state = new UIState();
+                dao.saveUIState(state);
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            init();
+        }
+    }
+
+    protected void init() {
 
         setContentView(R.layout.activity_main);
 
-        db = LogoDatabase.getInstance(getApplicationContext());
-        dao = db.logoDao();
-        state = dao.getUIState();
-        if (state == null) {
-            state = new UIState();
-            dao.saveUIState(state);
-        }
-
         mainSwitcher = findViewById(R.id.mainSwitcher);
+        serviceStartIntent = new Intent(this,LogoPlusService.class);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
@@ -114,8 +186,6 @@ public class MainActivity extends AppCompatActivity
         effectsItem = menu.findItem(R.id.effectsItem);
         navigationView.setNavigationItemSelectedListener(this);
 
-        serviceStartIntent = new Intent(this,LogoPlusService.class);
-
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
         intentFilter.addAction(LogoPlusService.START_FAIL_BROADCAST);
         statusReceiver = new BroadcastReceiver() {
@@ -126,7 +196,7 @@ public class MainActivity extends AppCompatActivity
                     serviceStatusSwitch.setChecked(true);
                 } else if (intent.getAction().equals(LogoPlusService.START_FAIL_BROADCAST)) {
                     state.serviceEnabled = false;
-                    dao.saveUIState(state);
+                    syncUIState();
                     AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
                     errorBuilder.setTitle(R.string.failed);
                     errorBuilder.setMessage(R.string.failed_start);
@@ -163,8 +233,7 @@ public class MainActivity extends AppCompatActivity
             public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 final ColorPickerView picker = new ColorPickerView(MainActivity.this);
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
-                final AppNotification notif = dao.getAppNotification( info.info.packageName).onErrorReturnItem(new AppNotification()).blockingGet();
-                picker.setColor(notif.color == null ? Color.GREEN : notif.color);
+                picker.setColor(info.color == null ? Color.GREEN : info.color);
                 picker.showAlpha(false);
                 picker.showHex(true);
                 picker.showPreview(true);
@@ -175,9 +244,10 @@ public class MainActivity extends AppCompatActivity
                         .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
+                                AppNotification notif = new AppNotification(info.info.packageName);
                                 notif.color = picker.getColor();
-                                notif.packageName = info.info.packageName;
-                                dao.addAppNotification(notif);
+                                Message msg = dbHandler.obtainMessage(ADD_NOTIF, notif);
+                                dbHandler.sendMessage(msg);
                                 listAdapter.appsList.get(position).color =  notif.color ;
                                 listAdapter.notifyDataSetChanged();
                             }
@@ -185,7 +255,8 @@ public class MainActivity extends AppCompatActivity
                         .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialog, int which) {
-                                if (notif.color != null) dao.deleteAppNotification(notif);
+                                Message msg = dbHandler.obtainMessage(DELETE_NOTIF, info.info.packageName);
+                                dbHandler.sendMessage(msg);
                                 listAdapter.appsList.get(position).color = null;
                                 listAdapter.notifyDataSetChanged();
                             }
@@ -207,7 +278,7 @@ public class MainActivity extends AppCompatActivity
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 new LoadApplications().execute(isChecked);
                 state.showSystemApps = isChecked;
-                dao.saveUIState(state);
+                syncUIState();
             }
         });
         new LoadApplications().execute(showSystem.isChecked());
@@ -217,7 +288,6 @@ public class MainActivity extends AppCompatActivity
         brightness.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                // TODO: Brightness
             }
 
             @Override
@@ -227,7 +297,8 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-
+                state.brightness = seekBar.getProgress();
+                syncUIState();
             }
         });
 
@@ -246,7 +317,7 @@ public class MainActivity extends AppCompatActivity
                     case R.id.pinWheelRadio: pref = LogoPlusService.EFFECT_PINWHEEL; break;
                 }
                 state.passiveEffect = pref;
-                dao.saveUIState(state);
+                syncUIState();
             }
         });
         RadioButton selectedButton = passiveGrp.findViewById(R.id.noneRadio);
@@ -276,7 +347,7 @@ public class MainActivity extends AppCompatActivity
                             public void onClick(DialogInterface dialog, int which) {
                                 final int color = picker.getColor();
                                 state.passiveColor = color;
-                                dao.saveUIState(state);
+                                syncUIState();
                                 effectColor.setBackgroundColor(color);
                             }
                         })
@@ -293,10 +364,6 @@ public class MainActivity extends AppCompatActivity
         effecLengthBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                //           TODO: Effect length
-                //state.effectLength = progress;
-                //
-                //dao.saveUIState(state);
                if (fromUser) effectLengthIndicator.setText(Integer.toString(progress));
             }
 
@@ -307,7 +374,8 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-
+                state.effectLength = (float)seekBar.getProgress();
+                syncUIState();
             }
         });
         effectLengthIndicator.addTextChangedListener(new TextWatcher() {
@@ -327,7 +395,8 @@ public class MainActivity extends AppCompatActivity
 
             @Override
             public void afterTextChanged(Editable s) {
-
+                state.effectLength = (float)effecLengthBar.getProgress();
+                syncUIState();
             }
         });
 
@@ -337,7 +406,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 state.powerSave = isChecked;
-                dao.saveUIState(state);
+                syncUIState();
             }
         });
 
@@ -355,6 +424,7 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onDestroy() {
         unregisterReceiver(statusReceiver);
+        if (dbHandler != null) dbHandler.getLooper().quitSafely();
         super.onDestroy();
     }
 
@@ -368,10 +438,18 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    @Override
+    protected void onStop() {
+        super.onStop();
+        Intent broadCastIntent = new Intent();
+        broadCastIntent.setAction(LogoPlusService.APPLY_EFFECT);
+        sendBroadcast(broadCastIntent);
+    }
+
     public void viewSwitch(int id)
     {
        state.currentView = id;
-       dao.saveUIState(state);
+        syncUIState();
         mainSwitcher.setDisplayedChild(id);
         switch (id)
         {
@@ -503,15 +581,14 @@ public class MainActivity extends AppCompatActivity
         if (status)
         {
             serviceStatusSwitch.setEnabled(false);
-            state.serviceEnabled = true;
-            dao.saveUIState(state);
-            startService(serviceStartIntent);
+            Message msg = dbHandler.obtainMessage(START_SERVICE);
+            dbHandler.sendMessage(msg);
         }
         else if (!status)
         {
             stopService(serviceStartIntent);
             state.serviceEnabled = false;
-            dao.saveUIState(state);
+            syncUIState();
         }
     }
 

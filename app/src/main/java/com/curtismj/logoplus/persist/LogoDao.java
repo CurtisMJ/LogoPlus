@@ -1,11 +1,9 @@
 package com.curtismj.logoplus.persist;
 
 import androidx.room.Dao;
-import androidx.room.Delete;
 import androidx.room.Insert;
 import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
-import androidx.room.Update;
 import io.reactivex.Single;
 
 @Dao
@@ -19,8 +17,8 @@ public interface LogoDao {
     @Insert (onConflict = OnConflictStrategy.REPLACE)
     void addAppNotification(AppNotification... notifs);
 
-    @Delete
-    void deleteAppNotification(AppNotification... notifs);
+    @Query("DELETE FROM AppNotification WHERE packageName = :pkgName")
+    void deleteAppNotification(String pkgName);
 
     @Query("SELECT * FROM UIState LIMIT 1")
     UIState getUIState();

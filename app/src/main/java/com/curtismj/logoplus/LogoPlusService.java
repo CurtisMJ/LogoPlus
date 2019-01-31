@@ -5,8 +5,6 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -17,23 +15,15 @@ import android.os.Messenger;
 import android.os.PowerManager;
 import android.os.Process;
 import android.util.Log;
-import android.widget.Toast;
-
 import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
 import com.curtismj.logoplus.persist.UIState;
-
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
-import java.util.Set;
-
-import androidx.annotation.NonNull;
-import androidx.room.InvalidationTracker;
 import eu.chainfire.libsuperuser.Shell;
-
 
 public class LogoPlusService extends Service {
     public static final int SERVICE_START = 0;
@@ -136,7 +126,6 @@ public class LogoPlusService extends Service {
     private void enterIdle()
     {
         Log.d("debug", "enter idle state requested");
-        fetchState();
         if (!inIdle) {
             inIdle = true;
             Log.d("debug", "entering idle state");
@@ -179,13 +168,22 @@ public class LogoPlusService extends Service {
         public void handleMessage(Message msg) {
 
             // NB: Only acquire wakelock in the process of applying effects, bureaucracy can wait
-
+            if (msg.what != SERVICE_START && !RootAvail) return;
             switch (msg.what) {
                 case SERVICE_START:
                     Log.d(BuildConfig.APPLICATION_ID, "Service Starting");
+                    db = LogoDatabase.getInstance(getApplicationContext());
+                    dao = db.logoDao();
+                    fetchState();
+                    if (state == null || !state.serviceEnabled)
+                    {
+                        stopSelf();
+                        return;
+                    }
+
                     rootSession = new Shell.Builder().
                             setAutoHandler(false).
-                            setShell("/garden/xbin_bind/su").
+                            useSU().
                             setWantSTDERR(true).
                             setWatchdogTimeout(5).
                             setMinimalLogging(true).
@@ -255,7 +253,7 @@ public class LogoPlusService extends Service {
                         inEffectOn = false;
                         Log.d("debug", "re-run effect");
                         fetchState();
-                        runEffect();
+                        enterIdle();
                     }
                     handlerLock.release();
                     break;
@@ -263,6 +261,7 @@ public class LogoPlusService extends Service {
                 case START_BOUNCE:
                     notifyStarted();
                     break;
+
             }
 
         }
@@ -329,14 +328,6 @@ public class LogoPlusService extends Service {
             return;
         }
 
-        db = LogoDatabase.getInstance(getApplicationContext());
-        dao = db.logoDao();
-        fetchState();
-        if (state == null || !state.serviceEnabled)
-        {
-            stopSelf();
-            return;
-        }
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
 
         handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
