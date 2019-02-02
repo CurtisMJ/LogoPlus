@@ -38,6 +38,9 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
     public static final int SERVICE_START = 0;
     public static final int NOTIF_POSTED = 1;
     public static final int NOTIF_REMOVED = 2;
+    public static final int APPLY = 3;
+    ArrayMap<String, Integer> notifs;
+    ArrayMap<String, AppNotification> cache;
 
     public void onServiceConnected(ComponentName className, IBinder service) {
         Log.d("debug", "remote service connecting");
@@ -68,7 +71,32 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
                     callback.bindService(new Intent(callback, LogoPlusService.class), callback, 0);
                 }
             }
+            else if (intent.getAction().equals(LogoPlusService.APPLY_EFFECT)) {
+                Message msg = callback.mServiceHandler.obtainMessage(APPLY);
+                callback.mServiceHandler.sendMessage(msg);
+            }
         }
+    }
+
+    private void refreshCache()
+    {
+        cache.clear();
+        AppNotification[] notifications = dao.getAppNotifications();
+        for (int i = 0; i < notifications.length; i++)
+        {
+            cache.put(notifications[i].packageName, notifications[i]);
+        }
+       int notifSize = notifs.size();
+        ArrayMap<String, Integer> rebuild = new ArrayMap<>();
+        for (int i = 0; i < notifSize; i++)
+        {
+            if (cache.containsKey(notifs.keyAt(i)))
+            {
+                rebuild.put(notifs.keyAt(i), notifs.valueAt(i));
+            }
+        }
+        notifs.clear();
+        notifs = rebuild;
     }
 
     private final class ServiceHandler extends Handler {
@@ -82,15 +110,17 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
                 case SERVICE_START:
                     db = LogoDatabase.getInstance(getApplicationContext());
                     dao = db.logoDao();
+                    refreshCache();
                     break;
 
                 case NOTIF_POSTED:
                     String pkg = (String) msg.obj;
-                    Log.d("debug", "notif" + pkg);
-                    AppNotification notif = dao.getAppNotification(pkg).onErrorReturnItem(new AppNotification()).blockingGet();
-                    if (notif.color != null) {
-                        notifs.put(notif.packageName, notif.color);
-                        notifyServiceChange();
+                    if (cache.containsKey(pkg)) {
+                        AppNotification notif = cache.get(pkg);
+                        if (notif.color != null) {
+                            notifs.put(notif.packageName, notif.color);
+                            notifyServiceChange();
+                        }
                     }
                     break;
 
@@ -98,6 +128,13 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
                     String key = (String) msg.obj;
                     if (notifs.containsKey(key)) {
                         notifs.remove(key);
+                        notifyServiceChange();
+                    }
+                    break;
+
+                case APPLY:
+                    if (dao != null) {
+                        refreshCache();
                         notifyServiceChange();
                     }
                     break;
@@ -111,8 +148,10 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
         super.onListenerConnected();
         Log.d("debug", "notification listener is starting");
         notifs = new ArrayMap<>();
+        cache = new ArrayMap<>();
 
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
+        intentFilter.addAction(LogoPlusService.APPLY_EFFECT);
         resyncReceiver = new ResyncReceiver(this);
         registerReceiver(resyncReceiver, intentFilter);
         Intent broadCastIntent = new Intent();
@@ -136,13 +175,12 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
         Log.d("debug", "notification listener is stopping");
         unregisterReceiver(resyncReceiver);
         notifs.clear();
+        cache.clear();
         notifyServiceChange();
         if (everBound) unbindService(this);
         db = null;
         dao = null;
     }
-
-    ArrayMap<String, Integer> notifs;
 
     private  void notifyServiceChange() {
         Log.d("debug", "update notfis requested");

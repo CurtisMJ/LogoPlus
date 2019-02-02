@@ -322,7 +322,7 @@ public class MainActivity extends AppCompatActivity
         });
         RadioButton selectedButton = passiveGrp.findViewById(R.id.noneRadio);
         switch (state.passiveEffect) {
-            case LogoPlusService.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.noneRadio); break;
+            case LogoPlusService.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.staticRadio); break;
             case LogoPlusService.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
             case LogoPlusService.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
             case LogoPlusService.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;

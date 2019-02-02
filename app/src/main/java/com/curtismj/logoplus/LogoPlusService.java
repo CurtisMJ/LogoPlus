@@ -83,10 +83,8 @@ public class LogoPlusService extends Service {
                     public void run(StateMachine sm, int otherState) {
                         if (LEDState != LED_PASSIVE)
                         {
-                            handlerLock.acquire(10000);
                             LEDState = LED_PASSIVE;
                             runEffect();
-                            handlerLock.release();
                         }
                     }
                 })
@@ -96,10 +94,8 @@ public class LogoPlusService extends Service {
                         if (!state.powerSave && otherState == STATE_SCREENOFF) return;
                         if (LEDState != LED_BLANK)
                         {
-                            handlerLock.acquire(10000);
                             LEDState = LED_BLANK;
                             blankLights();
-                            handlerLock.release();
                         }
                     }
                 })
@@ -107,10 +103,8 @@ public class LogoPlusService extends Service {
                     @Override
                     public void run(StateMachine sm, int otherState) {
                         if (latestNotifs.length > 0 && LEDState != LED_NOTIF) {
-                            handlerLock.acquire(10000);
                             LEDState = LED_NOTIF;
                             runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
-                            handlerLock.release();
                         }
                     }
                 })
@@ -120,10 +114,8 @@ public class LogoPlusService extends Service {
                         if (!state.powerSave && otherState == STATE_SCREENON) return;
                         if (LEDState != LED_BLANK)
                         {
-                            handlerLock.acquire(10000);
                             LEDState = LED_BLANK;
                             blankLights();
-                            handlerLock.release();
                         }
                     }
                 })
@@ -180,11 +172,13 @@ public class LogoPlusService extends Service {
 
     private void blankLights()
     {
+        handlerLock.acquire(10000);
         rootSession.waitForIdle();
         rootSession.addCommand(new String[]{
                 fadeoutBin
         });
         rootSession.waitForIdle();
+        handlerLock.release();
     }
 
     public void  runEffect() {
@@ -211,6 +205,7 @@ public class LogoPlusService extends Service {
 
     private void runProgram(String[] program)
     {
+        handlerLock.acquire(10000);
         rootSession.waitForIdle();
         rootSession.addCommand(new String[]{
                 fadeoutBin,
@@ -222,6 +217,7 @@ public class LogoPlusService extends Service {
                 "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
         });
         rootSession.waitForIdle();
+        handlerLock.release();
     }
 
     private void dumpFadeout(String path) throws IOException {
@@ -289,8 +285,8 @@ public class LogoPlusService extends Service {
                     fadeoutBin
             });
             rootSession.waitForIdle();
-            LEDState = LED_BLANK;
             handlerLock.release();
+            LEDState = LED_BLANK;
 
             IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
             intentFilter.addAction(Intent.ACTION_USER_PRESENT);
