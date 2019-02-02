@@ -17,13 +17,12 @@ import android.os.Process;
 import android.os.RemoteException;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
-import android.util.ArrayMap;
+import androidx.collection.ArrayMap;
 import android.util.Log;
 
 import com.curtismj.logoplus.persist.AppNotification;
 import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
-
 
 public class LogoPlusNotificationListener extends NotificationListenerService implements  ServiceConnection {
     private BroadcastReceiver resyncReceiver;

@@ -1,7 +1,5 @@
 package com.curtismj.logoplus.fsm;
 
-import android.telecom.Call;
-
 import androidx.collection.ArrayMap;
 
 public class StateMachine {
