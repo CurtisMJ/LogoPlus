@@ -7,7 +7,7 @@ import androidx.collection.ArrayMap;
 public class StateMachine {
     public interface Callback
     {
-        void run(StateMachine sm);
+        void run(StateMachine sm, int otherState);
     }
 
     private int state;
@@ -26,7 +26,7 @@ public class StateMachine {
     public StateMachine StartAt(int initialState)
     {
         state = initialState;
-        if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this);
+        if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this, -1);
         return this;
     }
 
@@ -39,8 +39,8 @@ public class StateMachine {
         state = trans.get(event);
         if (oldState != state)
         {
-            if (exitCallbacks.containsKey(oldState)) exitCallbacks.get(oldState).run(this);
-            if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this);
+            if (exitCallbacks.containsKey(oldState)) exitCallbacks.get(oldState).run(this, state);
+            if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this, oldState);
         }
         return this;
     }

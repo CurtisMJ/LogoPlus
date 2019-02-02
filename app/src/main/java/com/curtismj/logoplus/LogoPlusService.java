@@ -71,54 +71,71 @@ public class LogoPlusService extends Service {
     private UIState state;
     private StateMachine fsm;
 
+    public static final int LED_PASSIVE =  0;
+    public static final int LED_NOTIF = 1;
+    public static final int LED_BLANK=  2;
+    private int LEDState;
+
     private  void buildFSM() {
         fsm = new StateMachine();
-
         fsm.Enter(STATE_SCREENON, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
-                        handlerLock.acquire(10000);
-                        runEffect();
-                        handlerLock.release();
+                    public void run(StateMachine sm, int otherState) {
+                        if (LEDState != LED_PASSIVE)
+                        {
+                            handlerLock.acquire(10000);
+                            LEDState = LED_PASSIVE;
+                            runEffect();
+                            handlerLock.release();
+                        }
                     }
                 })
                 .Exit(STATE_SCREENON, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
-                        handlerLock.acquire(10000);
-                        blankLights();
-                        handlerLock.release();
+                    public void run(StateMachine sm, int otherState) {
+                        if (!state.powerSave && otherState == STATE_SCREENOFF) return;
+                        if (LEDState != LED_BLANK)
+                        {
+                            handlerLock.acquire(10000);
+                            LEDState = LED_BLANK;
+                            blankLights();
+                            handlerLock.release();
+                        }
                     }
                 })
                 .Enter(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
-                        handlerLock.acquire(10000);
-                        if (latestNotifs.length > 0) {
+                    public void run(StateMachine sm, int otherState) {
+                        if (latestNotifs.length > 0 && LEDState != LED_NOTIF) {
+                            handlerLock.acquire(10000);
+                            LEDState = LED_NOTIF;
                             runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
-                        } else if (!state.powerSave) {
-                            runEffect();
+                            handlerLock.release();
                         }
-                        handlerLock.release();
                     }
                 })
                 .Exit(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
-                        handlerLock.acquire(10000);
-                        blankLights();
-                        handlerLock.release();
+                    public void run(StateMachine sm, int otherState) {
+                        if (!state.powerSave && otherState == STATE_SCREENON) return;
+                        if (LEDState != LED_BLANK)
+                        {
+                            handlerLock.acquire(10000);
+                            LEDState = LED_BLANK;
+                            blankLights();
+                            handlerLock.release();
+                        }
                     }
                 })
                 .Enter(STATE_NOTIF_UPADTE, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
+                    public void run(StateMachine sm, int otherState) {
                         sm.Event(EVENT_NOTIF_UPDATE2);
                     }
                 })
                 .Enter(STATE_STATE_UPADTE, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm) {
+                    public void run(StateMachine sm, int otherState) {
                         fetchState();
                         sm.Event(EVENT_STATE_UPDATE2);
                     }
@@ -272,6 +289,7 @@ public class LogoPlusService extends Service {
                     fadeoutBin
             });
             rootSession.waitForIdle();
+            LEDState = LED_BLANK;
             handlerLock.release();
 
             IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
@@ -280,9 +298,9 @@ public class LogoPlusService extends Service {
             intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
             offReceiver = new LogoBroadcastReceiver(mServiceHandler);
             registerReceiver(offReceiver, intentFilter);
+            notifyStarted();
 
             buildFSM();
-            notifyStarted();
         } else {
             Log.d("debug", "root was denied");
             failOut();
@@ -298,7 +316,6 @@ public class LogoPlusService extends Service {
         @Override
         public void handleMessage(Message msg) {
 
-            // NB: Only acquire wakelock in the process of applying effects, bureaucracy can wait
             if (msg.what != SERVICE_START && !RootAvail) return;
             switch (msg.what) {
                 case SERVICE_START:
