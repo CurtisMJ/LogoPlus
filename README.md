@@ -5,3 +5,5 @@ See this XDA thread for more information: [https://forum.xda-developers.com/raze
 
 # Attribution
 Uses this excellent color picker: [https://github.com/martin-stone/hsv-alpha-color-picker-android](https://github.com/martin-stone/hsv-alpha-color-picker-android)
+
+Uses libsuperuser from ChainFire for root access [https://github.com/Chainfire/libsuperuser](https://github.com/Chainfire/libsuperuser)
