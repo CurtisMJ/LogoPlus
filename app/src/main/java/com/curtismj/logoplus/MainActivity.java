@@ -138,7 +138,7 @@ public class MainActivity extends AppCompatActivity
         new LoadTask().execute();
     }
 
-    private class LoadTask extends  AsyncTask<Void, Void, Void>
+    private final class LoadTask extends  AsyncTask<Void, Void, Void>
     {
         @Override
         protected Void doInBackground(Void... voids) {
@@ -522,7 +522,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private class LoadApplications extends AsyncTask<Boolean, Void, Void> {
+    private final class LoadApplications extends AsyncTask<Boolean, Void, Void> {
         @Override
         protected Void doInBackground(Boolean... showSystem) {
             if (listAdapter == null) {

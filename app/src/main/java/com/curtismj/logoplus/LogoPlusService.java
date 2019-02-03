@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Socket;
 import java.util.List;
 import eu.chainfire.libsuperuser.Shell;
 
@@ -48,6 +49,8 @@ public class LogoPlusService extends Service {
     public static final int STATE_SCREENOFF = 1;
     public static final int STATE_NOTIF_UPADTE = 2;
     public static final int STATE_STATE_UPADTE = 3;
+    public static final int STATE_VISUALIZER = 4;
+    public static final int STATE_VISUALIZER_JUNCTION= 5;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
@@ -55,6 +58,8 @@ public class LogoPlusService extends Service {
     public static final int EVENT_NOTIF_UPDATE2 =  3;
     public static final int EVENT_STATE_UPDATE =  4;
     public static final int EVENT_STATE_UPDATE2 =  5;
+    public static final int EVENT_ENTER_VISUALIZER=  6;
+    public static final int EVENT_EXIT_VISUALIZER=  7;
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
@@ -62,6 +67,7 @@ public class LogoPlusService extends Service {
     private  boolean RootAvail = false;
     private Shell.Interactive rootSession = null;
     private String fadeoutBin;
+    private String streamBin;
     private PowerManager pm;
     private int[] latestNotifs = new int[0];
     private  BroadcastReceiver offReceiver;
@@ -74,13 +80,14 @@ public class LogoPlusService extends Service {
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
     public static final int LED_BLANK=  2;
+    public static final int LED_VIS =  3;
     private int LEDState;
 
     private  void buildFSM() {
         fsm = new StateMachine();
         fsm.Enter(STATE_SCREENON, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         if (LEDState != LED_PASSIVE)
                         {
                             LEDState = LED_PASSIVE;
@@ -90,7 +97,7 @@ public class LogoPlusService extends Service {
                 })
                 .Exit(STATE_SCREENON, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         if (!state.powerSave && otherState == STATE_SCREENOFF) return;
                         if (LEDState != LED_BLANK)
                         {
@@ -99,9 +106,10 @@ public class LogoPlusService extends Service {
                         }
                     }
                 })
+
                 .Enter(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         if (latestNotifs.length > 0 && LEDState != LED_NOTIF) {
                             LEDState = LED_NOTIF;
                             runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
@@ -110,7 +118,7 @@ public class LogoPlusService extends Service {
                 })
                 .Exit(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         if (!state.powerSave && otherState == STATE_SCREENON) return;
                         if (LEDState != LED_BLANK)
                         {
@@ -119,25 +127,72 @@ public class LogoPlusService extends Service {
                         }
                     }
                 })
+
                 .Enter(STATE_NOTIF_UPADTE, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         sm.Event(EVENT_NOTIF_UPDATE2);
                     }
                 })
+
                 .Enter(STATE_STATE_UPADTE, new StateMachine.Callback() {
                     @Override
-                    public void run(StateMachine sm, int otherState) {
+                    public void run(StateMachine sm, int otherState, Object arg) {
                         fetchState();
                         sm.Event(EVENT_STATE_UPDATE2);
                     }
                 })
+
+                .Enter(STATE_VISUALIZER, new StateMachine.Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        // would ideally start the stream binary here as a daemon
+                        // and connect via unix domain sockets
+                        // BUT this would require a JNI lib, and
+                        // would need to make sure the root solution
+                        // adds the SELinux rules to allow communication
+                        // via these sockets to root space for normal apps
+                        // Magisk and SuperSU(I think) do it so that's probably
+                        // not an issue
+                        // This would also mean visualization is purely a root
+                        // function as ThsService can't really do anything
+                        // like this
+                    }
+                })
+                .Exit(STATE_VISUALIZER, new StateMachine.Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        // and order the daemon to die here
+                        if (LEDState != LED_BLANK)
+                        {
+                            LEDState = LED_BLANK;
+                            blankLights();
+                        }
+                    }
+                })
+
+                .Enter(STATE_VISUALIZER_JUNCTION, new StateMachine.Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        sm.Event(pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF);
+                    }
+                })
+
                 .Transition(STATE_SCREENOFF, EVENT_SCREENON, STATE_SCREENON)
                 .Transition(STATE_SCREENON, EVENT_SCREENOFF, STATE_SCREENOFF)
+
                 .Transition(STATE_SCREENOFF, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPADTE)
                 .Transition(STATE_NOTIF_UPADTE, EVENT_NOTIF_UPDATE2, STATE_SCREENOFF)
+
                 .Transition(STATE_SCREENON, EVENT_STATE_UPDATE, STATE_STATE_UPADTE)
                 .Transition(STATE_STATE_UPADTE, EVENT_STATE_UPDATE2, STATE_SCREENON)
+
+                .Transition(STATE_SCREENON, EVENT_ENTER_VISUALIZER, STATE_VISUALIZER)
+                .Transition(STATE_VISUALIZER, EVENT_EXIT_VISUALIZER, STATE_VISUALIZER_JUNCTION)
+
+                .Transition(STATE_VISUALIZER_JUNCTION, EVENT_SCREENON, STATE_SCREENON)
+                .Transition(STATE_VISUALIZER_JUNCTION, EVENT_SCREENOFF, STATE_SCREENOFF)
+
                 .StartAt(pm.isInteractive() ? STATE_SCREENON : STATE_SCREENOFF);
     }
 
@@ -220,11 +275,20 @@ public class LogoPlusService extends Service {
         handlerLock.release();
     }
 
-    private void dumpFadeout(String path) throws IOException {
-        OutputStream myOutput = new FileOutputStream(path);
+    private void dumpBinaries() throws IOException {
+        OutputStream myOutput = new FileOutputStream(fadeoutBin);
         byte[] buffer = new byte[1024];
         int length;
         InputStream myInput = getAssets().open("fadeout");
+        while ((length = myInput.read(buffer)) > 0) {
+            myOutput.write(buffer, 0, length);
+        }
+        myInput.close();
+        myOutput.flush();
+        myOutput.close();
+
+        myOutput = new FileOutputStream(streamBin);
+        myInput = getAssets().open("stream");
         while ((length = myInput.read(buffer)) > 0) {
             myOutput.write(buffer, 0, length);
         }
@@ -266,8 +330,9 @@ public class LogoPlusService extends Service {
 
         if (RootAvail) {
             fadeoutBin = getFilesDir() + "/fadeout";
+            streamBin = getFilesDir() + "/stream";
             try {
-                dumpFadeout(fadeoutBin);
+                dumpBinaries();
             } catch (IOException e) {
                 failOut();
                 return;
@@ -387,8 +452,6 @@ public class LogoPlusService extends Service {
         HandlerThread thread = new HandlerThread("ServiceStartArguments",
                 Process.THREAD_PRIORITY_BACKGROUND);
         thread.start();
-
-        // Get the HandlerThread's Looper and use it for our Handler
         mServiceLooper = thread.getLooper();
         mServiceHandler = new ServiceHandler(mServiceLooper);
         mMessenger = new Messenger(mServiceHandler);

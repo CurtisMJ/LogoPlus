@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
+
 #define FADERPATH "/sys/class/leds/lp5523:channel0/device/master_fader1"
 #define E1PATH "/sys/class/leds/lp5523:channel0/device/engine1_mode"
 #define E2PATH "/sys/class/leds/lp5523:channel0/device/engine2_mode"
@@ -8,11 +10,11 @@ int main()
 {
     // get current fade
    FILE* fadefile = fopen(FADERPATH, "r");
-    char buf[1024];
+    char buf[8];
    fread(buf, sizeof(buf) - 1, 1, fadefile);
-    int max;
-    sscanf(buf, "%d", &max);
     fclose(fadefile);
+    int max;
+    if (sscanf(buf, "%d", &max) != 1) max = 128;
 
     // fade out
     fopen(FADERPATH, "w");
