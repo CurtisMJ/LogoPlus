@@ -5,7 +5,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.media.MediaPlayer;
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.os.Bundle;
+import android.os.Debug;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -35,9 +39,11 @@ public class LogoPlusService extends Service {
     public static final int SCREENOFF = 3;
     public static final int APPLY_EFFECT_MSG = 4;
     public static final int START_BOUNCE = 5;
+    public static final int VIS_TEST = 6;
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
+    public static  final  String VIS_TEST_ACTION = BuildConfig.APPLICATION_ID + ".VisTest";
 
     public static final int EFFECT_NONE = 0;
     public static final int EFFECT_STATIC= 1;
@@ -82,6 +88,11 @@ public class LogoPlusService extends Service {
     public static final int LED_BLANK=  2;
     public static final int LED_VIS =  3;
     private int LEDState;
+
+    private LocalSocket streamSocket;
+    private OutputStream daemonStream;
+    private AudioVisualizer vis;
+    private MediaPlayer player;
 
     private  void buildFSM() {
         fsm = new StateMachine();
@@ -146,23 +157,19 @@ public class LogoPlusService extends Service {
                 .Enter(STATE_VISUALIZER, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        // would ideally start the stream binary here as a daemon
-                        // and connect via unix domain sockets
-                        // BUT this would require a JNI lib, and
-                        // would need to make sure the root solution
-                        // adds the SELinux rules to allow communication
-                        // via these sockets to root space for normal apps
-                        // Magisk and SuperSU(I think) do it so that's probably
-                        // not an issue
-                        // This would also mean visualization is purely a root
-                        // function as ThsService can't really do anything
-                        // like this
+                        LEDState = LED_VIS;
+                        if (!startStreamDaemon())
+                            sm.Event(EVENT_EXIT_VISUALIZER);
+                        //player = MediaPlayer.create(LogoPlusService.this, R.raw.song);
+                        //player.start();
+                        //vis = new AudioVisualizer(player.getAudioSessionId(), daemonStream);
                     }
                 })
                 .Exit(STATE_VISUALIZER, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        // and order the daemon to die here
+                        vis.stop();
+                        stopStreamDaemon();
                         if (LEDState != LED_BLANK)
                         {
                             LEDState = LED_BLANK;
@@ -236,6 +243,48 @@ public class LogoPlusService extends Service {
         handlerLock.release();
     }
 
+    private boolean startStreamDaemon()
+    {
+        Log.d("debug", "start stream daemon");
+        rootSession.waitForIdle();
+        rootSession.addCommand(new String[]{
+                streamBin,
+                "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
+        });
+        rootSession.waitForIdle();
+        streamSocket = new LocalSocket();
+        try {
+            streamSocket.connect(new LocalSocketAddress("14773833519149dc957ac9606d7f369f"));
+            daemonStream = streamSocket.getOutputStream();
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    private void stopStreamDaemon()
+    {
+        Log.d("debug", "stop stream daemon");
+        if (daemonStream != null)
+        {
+            try {
+                daemonStream.write(new byte[] { 1 } );
+                daemonStream.close();
+                streamSocket = null;
+                daemonStream = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        rootSession.waitForIdle();
+        rootSession.addCommand(new String[]{
+                "pkill logo_plus_stream_daemon"
+        });
+        rootSession.waitForIdle();
+    }
+
     public void  runEffect() {
         Log.d("debug", "effect start");
 
@@ -305,6 +354,7 @@ public class LogoPlusService extends Service {
         fetchState();
         if (state == null || !state.serviceEnabled)
         {
+            Log.d(BuildConfig.APPLICATION_ID, "Service not enabled. Goodbye");
             stopSelf();
             return;
         }
@@ -330,10 +380,12 @@ public class LogoPlusService extends Service {
 
         if (RootAvail) {
             fadeoutBin = getFilesDir() + "/fadeout";
-            streamBin = getFilesDir() + "/stream";
+            streamBin = getFilesDir() + "/logo_plus_stream_daemon";
             try {
                 dumpBinaries();
             } catch (IOException e) {
+                e.printStackTrace();
+                Log.d(BuildConfig.APPLICATION_ID, "dump binaries failed");
                 failOut();
                 return;
             }
@@ -345,6 +397,7 @@ public class LogoPlusService extends Service {
             Log.d("debug", "got root");
             rootSession.addCommand(new String[]{
                     "chmod +x " + fadeoutBin,
+                    "chmod +x " + streamBin,
                     "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
                     "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
                     fadeoutBin
@@ -357,6 +410,7 @@ public class LogoPlusService extends Service {
             intentFilter.addAction(Intent.ACTION_USER_PRESENT);
             intentFilter.addAction(APPLY_EFFECT);
             intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
+            intentFilter.addAction(VIS_TEST_ACTION);
             offReceiver = new LogoBroadcastReceiver(mServiceHandler);
             registerReceiver(offReceiver, intentFilter);
             notifyStarted();
@@ -403,6 +457,12 @@ public class LogoPlusService extends Service {
                     fsm.Event(EVENT_STATE_UPDATE);
                     break;
 
+                case VIS_TEST:
+                    Log.d("debug", "vis test");
+                    fsm.Event(EVENT_ENTER_VISUALIZER);
+                    break;
+
+
                 case START_BOUNCE:
                     notifyStarted();
                     break;
@@ -441,6 +501,11 @@ public class LogoPlusService extends Service {
                 case LogoPlusNotificationListener.START_BROADCAST:
                     Log.d("debug", "listener alive, echo");
                     msg = serviceHandler.obtainMessage(START_BOUNCE);
+                    serviceHandler.sendMessage(msg);
+                    break;
+                case VIS_TEST_ACTION:
+                    Log.d("debug", "vis test intent");
+                    msg = serviceHandler.obtainMessage(VIS_TEST);
                     serviceHandler.sendMessage(msg);
                     break;
             }
