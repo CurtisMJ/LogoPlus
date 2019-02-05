@@ -9,7 +9,6 @@ import android.media.MediaPlayer;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.os.Bundle;
-import android.os.Debug;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -28,7 +27,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Socket;
 import java.util.List;
 import eu.chainfire.libsuperuser.Shell;
 
@@ -39,11 +37,11 @@ public class LogoPlusService extends Service {
     public static final int SCREENOFF = 3;
     public static final int APPLY_EFFECT_MSG = 4;
     public static final int START_BOUNCE = 5;
-    public static final int VIS_TEST = 6;
+    public static final int VIS_START = 6;
+    public static final int VIS_STOP = 7;
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
-    public static  final  String VIS_TEST_ACTION = BuildConfig.APPLICATION_ID + ".VisTest";
 
     public static final int EFFECT_NONE = 0;
     public static final int EFFECT_STATIC= 1;
@@ -160,9 +158,7 @@ public class LogoPlusService extends Service {
                         LEDState = LED_VIS;
                         if (!startStreamDaemon())
                             sm.Event(EVENT_EXIT_VISUALIZER);
-                        //player = MediaPlayer.create(LogoPlusService.this, R.raw.song);
-                        //player.start();
-                        //vis = new AudioVisualizer(player.getAudioSessionId(), daemonStream);
+                        vis = new AudioVisualizer(0, daemonStream);
                     }
                 })
                 .Exit(STATE_VISUALIZER, new StateMachine.Callback() {
@@ -410,7 +406,6 @@ public class LogoPlusService extends Service {
             intentFilter.addAction(Intent.ACTION_USER_PRESENT);
             intentFilter.addAction(APPLY_EFFECT);
             intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
-            intentFilter.addAction(VIS_TEST_ACTION);
             offReceiver = new LogoBroadcastReceiver(mServiceHandler);
             registerReceiver(offReceiver, intentFilter);
             notifyStarted();
@@ -457,11 +452,15 @@ public class LogoPlusService extends Service {
                     fsm.Event(EVENT_STATE_UPDATE);
                     break;
 
-                case VIS_TEST:
+                case VIS_START:
                     Log.d("debug", "vis test");
                     fsm.Event(EVENT_ENTER_VISUALIZER);
                     break;
 
+                case VIS_STOP:
+                    Log.d("debug", "vis stop");
+                    fsm.Event(EVENT_EXIT_VISUALIZER);
+                    break;
 
                 case START_BOUNCE:
                     notifyStarted();
@@ -503,11 +502,6 @@ public class LogoPlusService extends Service {
                     msg = serviceHandler.obtainMessage(START_BOUNCE);
                     serviceHandler.sendMessage(msg);
                     break;
-                case VIS_TEST_ACTION:
-                    Log.d("debug", "vis test intent");
-                    msg = serviceHandler.obtainMessage(VIS_TEST);
-                    serviceHandler.sendMessage(msg);
-                    break;
             }
         }
     }
@@ -540,7 +534,23 @@ public class LogoPlusService extends Service {
     @Override
     public void onDestroy() {
         if (mServiceHandler != null) mServiceLooper.quitSafely();
+        if (daemonStream != null) {
+            try {
+                daemonStream.write(new byte[]{1});
+                daemonStream.close();
+                streamSocket = null;
+                daemonStream = null;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         if (rootSession != null) {
+            if (RootAvail)
+            {
+                rootSession.addCommand(new String[]{
+                        "pkill logo_plus_stream_daemon"
+                });
+            }
             rootSession.close();
         }
         if (offReceiver != null) unregisterReceiver(offReceiver);

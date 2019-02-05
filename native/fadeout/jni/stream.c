@@ -83,7 +83,7 @@ void daemonRun() {
     if (bind(sockfd, (struct sockaddr *) &serv_addr, servlen) < 0)
         error("bind() socket bind failed\n");
 
-    if (listen(sockfd, 1) == -1) error("listen failed");
+    if (listen(sockfd, 1) == -1) error("listen failed\n");
 
     newsockfd = acceptTimeout(sockfd, 10);
 
@@ -94,25 +94,27 @@ void daemonRun() {
     for (i = 0; i < 9; i++)
     {
         ledFiles[i] = fopen(leds[i], "w");
-        fprintf(ledFiles[i], "0");
-        fflush(ledFiles[i]);
+        if (ledFiles[i] == NULL) error("failed open %s\n", leds[i])
+        if (fprintf(ledFiles[i], "0") < 0) error("printf initial blank %s\n", leds[i]);
+        if (fflush(ledFiles[i]) == EOF) error("flush %s\n", leds[i]);
     }
     while (1)
     {
         char cmd[2];
         char ledsCmd[10];
-        if (read(newsockfd, cmd, 1) == -1) goto breakout;
+        char ack[1] = { 42 };
+        if (read(newsockfd, cmd, 1) < 1) goto breakout;
         switch  (cmd[0])
         {
             case PUT:
-                if (read(newsockfd, ledsCmd, 9) == -1) goto breakout;
+                if (read(newsockfd, ledsCmd, 9) < 1) goto breakout;
                 for (i = 0; i < 9; i++)
                 {
-                    fprintf(ledFiles[i], "%d", ledsCmd[i]);
+                    if (fprintf(ledFiles[i], "%d", ledsCmd[i]) < 0)  error("printf put  %s\n", leds[i]);
                 }
                 for (i = 0; i < 9; i++)
                 {
-                    fflush(ledFiles[i]);
+                    if (fflush(ledFiles[i]) == EOF) error("put flush %s\n", leds[i]);
                 }
                 break;
             case EXIT:
