@@ -17,6 +17,7 @@ import android.util.Log;
 import com.curtismj.logoplus.fsm.BaseLogoMachine;
 import com.curtismj.logoplus.fsm.RootLogoMachine;
 import com.curtismj.logoplus.fsm.StateMachine;
+import com.curtismj.logoplus.fsm.ThsLogoMachine;
 import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
 import com.curtismj.logoplus.persist.UIState;
@@ -53,8 +54,10 @@ public class LogoPlusService extends Service {
     private StateMachine fsm;
 
     private  void buildFSM() {
+        //fsm = new ThsLogoMachine(state, this);
         try {
             fsm = new RootLogoMachine(state, this);
+
         } catch (IOException e) {
             e.printStackTrace();
             fsm = null;

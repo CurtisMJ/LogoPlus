@@ -2,6 +2,7 @@ package com.curtismj.logoplus;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.app.ThsManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
