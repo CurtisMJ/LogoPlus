@@ -1,8 +1,6 @@
 package com.curtismj.logoplus;
 
-import android.os.PowerManager;
-
-class MicroCodeManager {
+public class MicroCodeManager {
     public static class LP55xProgram
     {
         public byte currAddr;

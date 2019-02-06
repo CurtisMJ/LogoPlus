@@ -65,4 +65,9 @@ public class StateMachine {
         enterCallbacks.put(state, callback);
         return this;
     }
+
+    public void cleanup()
+    {
+
+    }
 }

@@ -1,6 +1,5 @@
 package com.curtismj.logoplus;
 
-import android.icu.util.Output;
 import android.media.audiofx.Visualizer;
 import android.os.AsyncTask;
 
@@ -85,9 +84,11 @@ public class AudioVisualizer implements Visualizer.OnDataCaptureListener  {
 
     public void stop()
     {
-        pusher.cancel(true);
-        mVisualizer.setEnabled(false);
-        mVisualizer.release();
+        if (pusher != null) pusher.cancel(true);
+        if (mVisualizer != null) {
+            mVisualizer.setEnabled(false);
+            mVisualizer.release();
+        }
     }
 
     @Override

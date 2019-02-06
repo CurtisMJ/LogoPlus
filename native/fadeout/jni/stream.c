@@ -94,7 +94,7 @@ void daemonRun() {
     for (i = 0; i < 9; i++)
     {
         ledFiles[i] = fopen(leds[i], "w");
-        if (ledFiles[i] == NULL) error("failed open %s\n", leds[i])
+        if (ledFiles[i] == NULL) error("failed open %s\n", leds[i]);
         if (fprintf(ledFiles[i], "0") < 0) error("printf initial blank %s\n", leds[i]);
         if (fflush(ledFiles[i]) == EOF) error("flush %s\n", leds[i]);
     }
