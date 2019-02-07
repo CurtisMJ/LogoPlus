@@ -2,7 +2,6 @@ package com.curtismj.logoplus;
 
 import android.Manifest;
 import android.app.AlertDialog;
-import android.app.ThsManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -40,7 +39,6 @@ import android.os.Process;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -97,7 +95,7 @@ public class MainActivity extends AppCompatActivity
 
     private  final class DbHandler extends Handler {
 
-        DbHandler(Looper looper, LogoDao myDao) {
+        DbHandler(Looper looper) {
             super(looper);
         }
 
@@ -151,7 +149,7 @@ public class MainActivity extends AppCompatActivity
             HandlerThread thread = new HandlerThread("",
                     Process.THREAD_PRIORITY_BACKGROUND);
             thread.start();
-            dbHandler = new DbHandler(thread.getLooper(), dao);
+            dbHandler = new DbHandler(thread.getLooper());
 
             state = dao.getUIState();
             if (state == null) {
@@ -423,7 +421,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        askPermission();
+        //askPermission();
     }
 
     @Override

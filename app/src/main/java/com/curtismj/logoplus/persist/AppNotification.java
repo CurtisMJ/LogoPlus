@@ -3,7 +3,6 @@ package com.curtismj.logoplus.persist;
 import android.graphics.Color;
 
 import androidx.annotation.NonNull;
-import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 

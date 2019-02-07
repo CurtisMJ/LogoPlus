@@ -2,12 +2,6 @@ package com.curtismj.logoplus.fsm;
 
 import android.app.ThsManager;
 import android.content.Context;
-import android.content.pm.ApplicationInfo;
-import android.os.IBinder;
-import android.os.RemoteException;
-import android.util.Log;
-
-import com.android.internal.app.IThsService;
 import com.curtismj.logoplus.persist.UIState;
 
 public class ThsLogoMachine extends BaseLogoMachine {

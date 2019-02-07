@@ -4,7 +4,6 @@ import android.graphics.Color;
 
 import com.curtismj.logoplus.LogoPlusService;
 
-import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
 

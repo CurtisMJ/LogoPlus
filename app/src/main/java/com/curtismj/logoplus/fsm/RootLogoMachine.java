@@ -208,13 +208,12 @@ public class RootLogoMachine extends BaseLogoMachine {
         super(initial);
 
         context = _context;
-        eu.chainfire.libsuperuser.Debug.setDebug(true);
         rootSession = new Shell.Builder().
                 setAutoHandler(false).
-                setShell("/garden/xbin_bind/su").
+                useSU().
                 setWantSTDERR(true).
                 setWatchdogTimeout(5).
-                setMinimalLogging(false).
+                setMinimalLogging(true).
                 open(new Shell.OnCommandResultListener() {
 
                     // Callback to report whether the shell was successfully started up
