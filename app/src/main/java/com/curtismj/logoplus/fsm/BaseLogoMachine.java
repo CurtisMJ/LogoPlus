@@ -1,5 +1,7 @@
 package com.curtismj.logoplus.fsm;
 
+import android.graphics.Color;
+
 import com.curtismj.logoplus.LogoPlusService;
 import com.curtismj.logoplus.MicroCodeManager;
 import com.curtismj.logoplus.persist.UIState;

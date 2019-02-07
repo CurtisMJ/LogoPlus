@@ -34,30 +34,16 @@ public class RootLogoMachine extends BaseLogoMachine {
     private OutputStream daemonStream;
     private AudioVisualizer vis;
 
+    private  boolean daemonStarted;
+
+    private Integer streamDaemonPid;
+
     @Override
     public void cleanup() {
         super.cleanup();
 
-        if (daemonStream != null) {
-            try {
-                daemonStream.write(new byte[]{1});
-                daemonStream.close();
-                streamSocket = null;
-                daemonStream = null;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-        if (rootSession != null) {
-            if (RootAvail)
-            {
-                rootSession.addCommand(new String[]{
-                        "pkill logo_plus_stream_daemon"
-                });
-            }
+            stopStreamDaemon();
             rootSession.close();
-        }
     }
 
     @Override
@@ -75,9 +61,32 @@ public class RootLogoMachine extends BaseLogoMachine {
     private boolean startStreamDaemon()
     {
         Log.d("debug", "start stream daemon");
+        stopStreamDaemon();
         rootSession.waitForIdle();
+        daemonStarted = false;
+        rootSession.addCommand(streamBin, 0, new Shell.OnCommandLineListener() {
+            @Override
+            public void onCommandResult(int commandCode, int exitCode) {
+                daemonStarted = (exitCode == 0);
+            }
+
+            @Override
+            public void onLine(String line) {
+                try {
+                    streamDaemonPid = Integer.parseInt(line);
+                }
+                catch (NumberFormatException e)
+                {
+                    Log.d("debug", "warning, non pid line received which was not expected");
+                }
+            }
+        });
+        rootSession.waitForIdle();
+        if (!daemonStarted)
+        {
+            return false;
+        }
         rootSession.addCommand(new String[]{
-                streamBin,
                 "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
         });
         rootSession.waitForIdle();
@@ -106,12 +115,6 @@ public class RootLogoMachine extends BaseLogoMachine {
                 e.printStackTrace();
             }
         }
-
-        rootSession.waitForIdle();
-        rootSession.addCommand(new String[]{
-                "pkill logo_plus_stream_daemon"
-        });
-        rootSession.waitForIdle();
     }
 
     @Override
@@ -170,7 +173,8 @@ public class RootLogoMachine extends BaseLogoMachine {
                             LEDState = LED_VIS;
                             if (!startStreamDaemon())
                                 sm.Event(EVENT_EXIT_VISUALIZER);
-                            vis = new AudioVisualizer(0, daemonStream);
+                            else
+                                vis = new AudioVisualizer(0, daemonStream);
                         }
                     }
                 })
@@ -204,13 +208,13 @@ public class RootLogoMachine extends BaseLogoMachine {
         super(initial);
 
         context = _context;
-
+        eu.chainfire.libsuperuser.Debug.setDebug(true);
         rootSession = new Shell.Builder().
                 setAutoHandler(false).
-                useSU().
+                setShell("/garden/xbin_bind/su").
                 setWantSTDERR(true).
                 setWatchdogTimeout(5).
-                setMinimalLogging(true).
+                setMinimalLogging(false).
                 open(new Shell.OnCommandResultListener() {
 
                     // Callback to report whether the shell was successfully started up
