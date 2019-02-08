@@ -25,9 +25,7 @@ public class RootLogoMachine extends BaseLogoMachine {
     private Shell.Interactive rootSession;
     private String fadeoutBin;
     private String streamBin;
-    private PowerManager pm;
     private PowerManager.WakeLock handlerLock;
-    private  Context context;
     private int shellExitCode;
 
     private LocalSocket streamSocket;
@@ -161,10 +159,8 @@ public class RootLogoMachine extends BaseLogoMachine {
     {
         this
                 .Transition(STATE_SCREENON, EVENT_ENTER_VISUALIZER, STATE_VISUALIZER)
-                .Transition(STATE_VISUALIZER, EVENT_EXIT_VISUALIZER, STATE_VISUALIZER_JUNCTION)
-
-                .Transition(STATE_VISUALIZER_JUNCTION, EVENT_SCREENON, STATE_SCREENON)
-                .Transition(STATE_VISUALIZER_JUNCTION, EVENT_SCREENOFF, STATE_SCREENOFF)
+                .Transition(STATE_SCREENOFF, EVENT_ENTER_VISUALIZER, STATE_VISUALIZER)
+                .Transition(STATE_VISUALIZER, EVENT_EXIT_VISUALIZER, STATE_RESTORE_JUNCTION)
 
                 .Enter(STATE_VISUALIZER, new StateMachine.Callback() {
                     @Override
@@ -195,22 +191,15 @@ public class RootLogoMachine extends BaseLogoMachine {
                             blankLights();
                         }
                     }
-                })
-                .Enter(STATE_VISUALIZER_JUNCTION, new StateMachine.Callback() {
-                    @Override
-                    public void run(StateMachine sm, int otherState, Object arg) {
-                        sm.Event(pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF);
-                    }
                 });
     }
 
     public RootLogoMachine(UIState initial, Context _context) throws IOException, RootDeniedException {
-        super(initial);
+        super(_context, initial);
 
-        context = _context;
         rootSession = new Shell.Builder().
                 setAutoHandler(false).
-                useSU().
+               useSU().
                 setWantSTDERR(true).
                 setWatchdogTimeout(5).
                 setMinimalLogging(true).
@@ -239,7 +228,6 @@ public class RootLogoMachine extends BaseLogoMachine {
                 throw e;
             }
 
-            pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
             handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
 
             handlerLock.acquire(10000);

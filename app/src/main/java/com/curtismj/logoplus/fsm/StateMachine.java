@@ -1,5 +1,7 @@
 package com.curtismj.logoplus.fsm;
 
+import android.util.Log;
+
 import androidx.collection.ArrayMap;
 
 public class StateMachine {
@@ -23,6 +25,7 @@ public class StateMachine {
 
     public StateMachine StartAt(int initialState)
     {
+        Log.d("debug", "SM: Start at " + initialState);
         state = initialState;
         if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this, -1, null);
         return this;
@@ -35,6 +38,7 @@ public class StateMachine {
 
     public StateMachine Event(int event, Object arg)
     {
+        Log.d("debug", "SM: Event " + event);
         if (!transitions.containsKey(state)) return this;
         ArrayMap<Integer, Integer> trans = transitions.get(state);
         if (!trans.containsKey(event)) return this;
@@ -42,7 +46,10 @@ public class StateMachine {
         state = trans.get(event);
         if (oldState != state)
         {
+            Log.d("debug", "SM: State change  " + oldState + " -> " + state);
+            Log.d("debug", "SM: Exit state " + oldState);
             if (exitCallbacks.containsKey(oldState)) exitCallbacks.get(oldState).run(this, state, arg);
+            Log.d("debug", "SM: Enter state " + state);
             if (enterCallbacks.containsKey(state)) enterCallbacks.get(state).run(this, oldState, arg);
         }
         return this;

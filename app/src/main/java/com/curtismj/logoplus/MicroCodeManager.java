@@ -50,6 +50,21 @@ public class MicroCodeManager {
             return dw(0x9F80 | (addr & 0x7F));
         }
 
+        public byte muxMapStart(int addr)
+        {
+            return dw(0x9C00 | (addr & 0x7F));
+        }
+
+        public byte muxLdEnd(int addr)
+        {
+            return dw(0x9C80 | (addr & 0x7F));
+        }
+
+        public byte muxMapNext()
+        {
+            return dw(0x9D80);
+        }
+
         public byte setPwm(int val)
         {
             return dw(0x4000 | (val & 0xFF));
@@ -294,6 +309,110 @@ public class MicroCodeManager {
         prog.trigger(true, 1, 0, 0);
         prog.ramp(200f, (byte) 1, 255);
         prog.branch(0, 2);
+
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
+    }
+
+    public static  String[] ringProgramBuild(int color)
+    {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+
+        /*
+        111000000 0x1C0     R
+        000010101 0x15        G
+        000101010 0x2A        B
+
+        Pad 1
+        000000001 0x1
+        000000010 0x2
+        001000000 0x40
+
+        Pad 2
+        000010000 0x10
+        000100000 0x20
+        100000000 0x100
+
+        Pad 3
+        000000100 0x4
+        000001000 0x8
+        010000000 0x80
+
+         */
+
+        byte eng1 = prog.dw(0x1FF);
+
+        // Green
+        byte eng1_pad1 = prog.dw(0x1);
+        byte eng1_pad2 = prog.dw(0x10);
+        byte eng1_pad3 = prog.dw(0x4);
+
+        // Blue
+        byte eng2_pad1 = prog.dw(0x2);
+        byte eng2_pad2 = prog.dw(0x20);
+        byte eng2_pad3 = prog.dw(0x8);
+
+        // Red
+        byte eng3_pad1 = prog.dw(0x40);
+        byte eng3_pad2 = prog.dw(0x100);
+        byte eng3_pad3 = prog.dw(0x80);
+
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = (color) & 0xFF;
+
+        byte prog1 = prog.muxMapAddr(eng1);
+        prog.setPwm(0);
+        prog.muxMapStart(eng1_pad1);
+        prog.muxLdEnd(eng1_pad3);
+        prog.trigger(false, 0, 1, 1);
+
+        byte upRamp1 = prog.ramp(100f, (byte)0,  g);
+        prog.muxMapNext();
+        prog.branch(3, upRamp1 - prog1);
+        prog.trigger(true, 0, 1, 1);
+        prog.trigger(false, 0, 1, 1);
+        prog.muxMapNext();
+        byte dwnRamp1 = prog.ramp(100f, (byte)1,  255);
+        prog.muxMapNext();
+        prog.branch(3, dwnRamp1 - prog1);
+        prog.branch(0, upRamp1 - prog1);
+
+
+        byte prog2 = prog.muxMapStart(eng2_pad1);
+        prog.muxLdEnd(eng2_pad3);
+        prog.trigger(true, 1, 0, 0);
+
+        byte upRamp2 = prog.ramp(100f, (byte)0,  b);
+        prog.muxMapNext();
+        prog.branch(3, upRamp2 - prog2);
+        prog.trigger(false, 1, 0, 0);
+        prog.trigger(true, 1, 0, 0);
+        prog.muxMapNext();
+        byte dwnRamp2 = prog.ramp(100f, (byte)1,  255);
+        prog.muxMapNext();
+        prog.branch(3, dwnRamp2 - prog2);
+        prog.branch(0, upRamp2 - prog2);
+
+
+        byte prog3 = prog.muxMapStart(eng3_pad1);
+        prog.muxLdEnd(eng3_pad3);
+        prog.trigger(true, 1, 0, 0);
+
+        byte upRamp3 = prog.ramp(100f, (byte)0,  r);
+        prog.muxMapNext();
+        prog.branch(3, upRamp3 - prog3);
+        prog.trigger(false, 1, 0, 0);
+        prog.trigger(true, 1, 0, 0);
+        prog.muxMapNext();
+        byte dwnRamp3 = prog.ramp(100f, (byte)1,  255);
+        prog.muxMapNext();
+        prog.branch(3, dwnRamp3 - prog3);
+        prog.branch(0, upRamp3 - prog3);
 
         return new String[]{
                 String.format("%02X", prog1),

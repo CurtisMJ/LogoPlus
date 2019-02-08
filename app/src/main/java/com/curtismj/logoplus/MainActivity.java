@@ -421,7 +421,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        //askPermission();
+        askPermission();
     }
 
     @Override
@@ -600,21 +600,23 @@ public class MainActivity extends AppCompatActivity
     private boolean askPermission() {
 
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        //int RECORD_AUDIO = checkSelfPermission(Manifest.permission.RECORD_AUDIO);
+        //
+        //if (RECORD_AUDIO != PackageManager.PERMISSION_GRANTED) {
+        //    permissions.add(Manifest.permission.RECORD_AUDIO);
+        //}
 
-            int RECORD_AUDIO = checkSelfPermission(Manifest.permission.RECORD_AUDIO );
+        int READ_PHONE_STATE = checkSelfPermission(Manifest.permission.READ_PHONE_STATE);
 
-            if (RECORD_AUDIO != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.RECORD_AUDIO);
-            }
+        if (READ_PHONE_STATE != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_PHONE_STATE);
+        }
 
-
-            if (!permissions.isEmpty()) {
-                requestPermissions(permissions.toArray(new String[permissions.size()]), 1);
-            } else
-                return false;
+        if (!permissions.isEmpty()) {
+            requestPermissions(permissions.toArray(new String[permissions.size()]), 1);
         } else
             return false;
+
         return true;
 
     }

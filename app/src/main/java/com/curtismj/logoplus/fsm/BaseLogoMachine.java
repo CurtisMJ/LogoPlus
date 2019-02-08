@@ -1,5 +1,8 @@
 package com.curtismj.logoplus.fsm;
 
+import android.content.Context;
+import android.os.PowerManager;
+
 import com.curtismj.logoplus.LogoPlusService;
 import com.curtismj.logoplus.MicroCodeManager;
 import com.curtismj.logoplus.persist.UIState;
@@ -11,27 +14,31 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_NOTIF_UPDATE = 2;
     public static final int STATE_STATE_UPDATE = 3;
     public static final int STATE_VISUALIZER = 4;
-    public static final int STATE_VISUALIZER_JUNCTION= 5;
+    public static final int STATE_RINGING= 5;
+    public static final int STATE_RESTORE_JUNCTION= 6;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
     public static final int EVENT_NOTIF_UPDATE =  2;
-    public static final int EVENT_NOTIF_UPDATE_OFF =  3;
-    public static final int EVENT_NOTIF_UPDATE_ON =  4;
-    public static final int EVENT_STATE_UPDATE =  5;
-    public static final int EVENT_STATE_UPDATE_OFF =  6;
-    public static final int EVENT_STATE_UPDATE_ON =  7;
-    public static final int EVENT_ENTER_VISUALIZER=  8;
-    public static final int EVENT_EXIT_VISUALIZER=  9;
+    public static final int EVENT_STATE_UPDATE =  3;
+    public static final int EVENT_ENTER_VISUALIZER=  4;
+    public static final int EVENT_EXIT_VISUALIZER=  5;
+    public static final int EVENT_RING = 6;
+    public static final int EVENT_STOP_RING = 7;
 
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
     public static final int LED_BLANK=  2;
     public static final int LED_VIS =  3;
+    public static final int LED_RING =  4;
 
     protected int LEDState;
     protected UIState state;
     protected  int[] latestNotifs = new int[0];
+    protected  int ringColor;
+
+    protected PowerManager pm;
+    protected  Context context;
 
     protected void  runEffect() {
         switch (state.passiveEffect) {
@@ -61,27 +68,55 @@ public class BaseLogoMachine extends StateMachine {
         // base does nothing
     }
 
-    public BaseLogoMachine(UIState initial) {
+    private void backtrackState(int otherState, StateMachine sm)
+    {
+        switch (otherState)
+        {
+            case STATE_SCREENON:
+                sm.Event(EVENT_SCREENON);
+                break;
+            case STATE_SCREENOFF:
+                sm.Event(EVENT_SCREENOFF);
+                break;
+            case STATE_RINGING:
+                sm.Event(EVENT_RING);
+                break;
+        }
+    }
+
+    public BaseLogoMachine(Context _context, UIState initial) {
         super();
 
         state = initial;
+        context = _context;
+        pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
         this
+                // Mid state notif updates (usually silent)
                 .Transition(STATE_SCREENON, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
-                .Transition(STATE_NOTIF_UPDATE, EVENT_NOTIF_UPDATE_ON, STATE_SCREENON)
                 .Transition(STATE_SCREENOFF, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
-                .Transition(STATE_NOTIF_UPDATE, EVENT_NOTIF_UPDATE_OFF, STATE_SCREENOFF)
+                .Transition(STATE_RINGING, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
 
+                // Notif update back to state
+                .Transition(STATE_NOTIF_UPDATE, EVENT_SCREENON, STATE_SCREENON)
+                .Transition(STATE_NOTIF_UPDATE, EVENT_SCREENOFF, STATE_SCREENOFF)
+                .Transition(STATE_NOTIF_UPDATE, EVENT_RING, STATE_RINGING)
+
+                // Mid state global settings updates (usually NOT silent)
                 .Transition(STATE_SCREENON, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
-                .Transition(STATE_STATE_UPDATE, EVENT_STATE_UPDATE_ON, STATE_SCREENON)
                 .Transition(STATE_SCREENOFF, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
-                .Transition(STATE_STATE_UPDATE, EVENT_STATE_UPDATE_OFF, STATE_SCREENOFF)
+                .Transition(STATE_RINGING, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
+
+                // Global settings back to state
+                .Transition(STATE_STATE_UPDATE, EVENT_SCREENON, STATE_SCREENON)
+                .Transition(STATE_STATE_UPDATE, EVENT_SCREENOFF, STATE_SCREENOFF)
+                .Transition(STATE_STATE_UPDATE, EVENT_RING, STATE_RINGING)
 
                 .Enter(STATE_NOTIF_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         latestNotifs = (int[])arg;
-                        sm.Event(otherState == STATE_SCREENON ? EVENT_NOTIF_UPDATE_ON : EVENT_NOTIF_UPDATE_OFF);
+                        backtrackState(otherState, sm);
                     }
                 })
 
@@ -89,7 +124,7 @@ public class BaseLogoMachine extends StateMachine {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         state = (UIState) arg;
-                        sm.Event(otherState == STATE_SCREENON ? EVENT_STATE_UPDATE_ON : EVENT_STATE_UPDATE_OFF);
+                        backtrackState(otherState, sm);
                     }
                 })
 
@@ -140,7 +175,48 @@ public class BaseLogoMachine extends StateMachine {
                             blankLights();
                         }
                     }
+                })
+
+                .Transition(STATE_SCREENOFF, EVENT_RING, STATE_RINGING)
+                .Transition(STATE_SCREENON, EVENT_RING, STATE_RINGING)
+                .Transition(STATE_RINGING, EVENT_STOP_RING, STATE_RESTORE_JUNCTION)
+
+                .Enter(STATE_RINGING, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        if (arg != null)
+                        {
+                            ringColor = (Integer)arg;
+                        }
+                        if (LEDState != LED_RING)
+                        {
+                            LEDState = LED_RING;
+                            runProgram(MicroCodeManager.ringProgramBuild(ringColor));
+                        }
+                    }
+                })
+                .Exit(STATE_RINGING, new StateMachine.Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        if (otherState == EVENT_NOTIF_UPDATE) return;
+                        if (LEDState != LED_BLANK) {
+                            LEDState = LED_BLANK;
+                            blankLights();
+                        }
+                    }
+                })
+
+                .Transition(STATE_RESTORE_JUNCTION, EVENT_SCREENON, STATE_SCREENON)
+                .Transition(STATE_RESTORE_JUNCTION, EVENT_SCREENOFF, STATE_SCREENOFF)
+                .Enter(STATE_RESTORE_JUNCTION, new StateMachine.Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        sm.Event(pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF);
+                    }
                 });
+
+        ;
+
 
     }
 }

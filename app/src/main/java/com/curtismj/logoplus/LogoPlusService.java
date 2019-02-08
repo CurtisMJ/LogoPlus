@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -12,6 +13,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.Process;
+import android.telephony.TelephonyManager;
 import android.util.Log;
 
 import com.curtismj.logoplus.fsm.BaseLogoMachine;
@@ -32,6 +34,7 @@ public class LogoPlusService extends Service {
     public static final int START_BOUNCE = 5;
     public static final int VIS_START = 6;
     public static final int VIS_STOP = 7;
+    public static final int PHONE_STATE = 8;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
@@ -110,6 +113,7 @@ public class LogoPlusService extends Service {
         intentFilter.addAction(Intent.ACTION_USER_PRESENT);
         intentFilter.addAction(APPLY_EFFECT);
         intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
+        intentFilter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
         offReceiver = new LogoBroadcastReceiver(mServiceHandler);
         registerReceiver(offReceiver, intentFilter);
 
@@ -162,6 +166,18 @@ public class LogoPlusService extends Service {
                     notifyStarted();
                     break;
 
+                case PHONE_STATE:
+                    String state = msg.getData().getString(TelephonyManager.EXTRA_STATE);
+
+                    if (TelephonyManager.EXTRA_STATE_RINGING.equals(state))
+                    {
+                        fsm.Event(BaseLogoMachine.EVENT_RING, Color.RED);
+                    }
+                    else if (TelephonyManager.EXTRA_STATE_IDLE.equals(state) || TelephonyManager.EXTRA_STATE_OFFHOOK.equals(state))
+                    {
+                        fsm.Event(BaseLogoMachine.EVENT_STOP_RING);
+                    }
+                    break;
             }
         }
     }
@@ -196,6 +212,12 @@ public class LogoPlusService extends Service {
                 case LogoPlusNotificationListener.START_BROADCAST:
                     Log.d("debug", "listener alive, echo");
                     msg = serviceHandler.obtainMessage(START_BOUNCE);
+                    serviceHandler.sendMessage(msg);
+                    break;
+                case TelephonyManager.ACTION_PHONE_STATE_CHANGED:
+                    Log.d("debug", "phone state changed");
+                    msg = serviceHandler.obtainMessage(PHONE_STATE);
+                    msg.setData(intent.getExtras());
                     serviceHandler.sendMessage(msg);
                     break;
             }

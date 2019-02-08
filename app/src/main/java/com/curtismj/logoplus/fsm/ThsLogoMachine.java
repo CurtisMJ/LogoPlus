@@ -7,7 +7,6 @@ import com.curtismj.logoplus.persist.UIState;
 public class ThsLogoMachine extends BaseLogoMachine {
 
     private ThsManager thsService;
-    private  Context context;
 
     @Override
     protected void blankLights() {
@@ -20,8 +19,7 @@ public class ThsLogoMachine extends BaseLogoMachine {
     }
 
     public ThsLogoMachine(UIState initial, Context _context) {
-        super(initial);
-        context = _context;
+        super(_context, initial);
         thsService = (ThsManager) context.getSystemService("ths");
     }
 
