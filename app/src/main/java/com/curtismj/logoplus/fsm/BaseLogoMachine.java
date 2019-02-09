@@ -214,9 +214,6 @@ public class BaseLogoMachine extends StateMachine {
                         sm.Event(pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF);
                     }
                 });
-
-        ;
-
-
+        
     }
 }

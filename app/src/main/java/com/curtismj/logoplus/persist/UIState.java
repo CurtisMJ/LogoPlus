@@ -20,6 +20,7 @@ public class UIState {
     public int passiveColor;
     public float effectLength;
     public  boolean powerSave;
+    public boolean ringAnimation;
 
     public UIState()
     {
@@ -32,5 +33,6 @@ public class UIState {
         passiveColor = Color.GREEN;
         effectLength = 6000f;
         powerSave = true;
+        ringAnimation = false;
     }
 }

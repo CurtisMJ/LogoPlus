@@ -10,6 +10,9 @@
         <item
             android:id="@+id/effectsItem"
             android:title="@string/effects" />
+        <item
+            android:id="@+id/ringItem"
+            android:title="@string/ringMenu" />
     </group>
     <item
         android:id="@+id/aboutItem"

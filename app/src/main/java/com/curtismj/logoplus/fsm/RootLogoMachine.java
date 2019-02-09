@@ -199,7 +199,7 @@ public class RootLogoMachine extends BaseLogoMachine {
 
         rootSession = new Shell.Builder().
                 setAutoHandler(false).
-               useSU().
+                useSU().
                 setWantSTDERR(true).
                 setWatchdogTimeout(5).
                 setMinimalLogging(true).

@@ -9,18 +9,20 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 
 import com.curtismj.logoplus.persist.AppNotification;
 import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
+import com.curtismj.logoplus.persist.RingColor;
 import com.curtismj.logoplus.persist.UIState;
 import com.google.android.material.navigation.NavigationView;
 
@@ -36,6 +38,7 @@ import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Process;
+import android.provider.ContactsContract;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.DisplayMetrics;
@@ -60,6 +63,7 @@ import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 import com.rarepebble.colorpicker.ColorPickerView;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
@@ -67,18 +71,22 @@ import java.util.List;
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
+    private static final int RESULT_PICK_CONTACT = 1;
     Switch serviceStatusSwitch;
+    Switch ringEffectSwtich;
 
-    ListView appList;
+    ListView appList, numberList;
     CheckBox showSystem;
     ProgressBar listSpinner;
+    ProgressBar ringListSpinner;
     private PackageManager packageManager = null;
     private ApplicationAdapter listAdapter = null;
+    private RingColorAdapter ringColorAdapter = null;
     private SeekBar brightness;
     int iconWidth;
     private BroadcastReceiver statusReceiver;
     ViewFlipper mainSwitcher;
-    MenuItem notifItem, effectsItem;
+    MenuItem notifItem, effectsItem, ringItem;
     RadioGroup passiveGrp;
     View effectColor;
     SeekBar effecLengthBar;
@@ -87,11 +95,15 @@ public class MainActivity extends AppCompatActivity
     LogoDao dao;
     UIState state;
     Intent serviceStartIntent;
+    Button addNumButton;
 
     private  static final int UPDATE_UI_STATE = 0;
     private  static final int ADD_NOTIF = 1;
     private  static final int DELETE_NOTIF = 2;
     private  static final int START_SERVICE = 3;
+    private  static final int ADD_RING_COLOR = 4;
+    private  static final int ADD_RING_COLOR_ADD = 5;
+    private  static final int DELETE_RING_COLOR = 6;
 
     private  final class DbHandler extends Handler {
 
@@ -113,6 +125,24 @@ public class MainActivity extends AppCompatActivity
 
                 case DELETE_NOTIF:
                     dao.deleteAppNotification((String)msg.obj);
+                    break;
+
+                case ADD_RING_COLOR:
+                case ADD_RING_COLOR_ADD:
+                    dao.addRingColor((RingColor) msg.obj);
+                    if (msg.what == ADD_RING_COLOR_ADD)
+                    {
+                        MainActivity.this.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                new LoadRingColors().execute();
+                            }
+                        });
+                    }
+                    break;
+
+                case DELETE_RING_COLOR:
+                    dao.deleteRingColor((String) msg.obj);
                     break;
 
                 case START_SERVICE:
@@ -165,6 +195,39 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private  interface  ColorPickCallback
+    {
+        void run(int color);
+    }
+
+    private void colorPickDialog(int initial, final ColorPickCallback ok, final ColorPickCallback remove)
+    {
+        final ColorPickerView picker = new ColorPickerView(MainActivity.this);
+        picker.setColor(initial);
+        picker.showAlpha(false);
+        picker.showHex(true);
+        picker.showPreview(true);
+        AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(MainActivity.this);
+        pickerBuilder
+                .setTitle(null)
+                .setView(picker)
+                .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        ok.run(picker.getColor());
+                    }
+                })
+                .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        remove.run(picker.getColor());
+                    }
+                })
+                .setNegativeButton(R.string.cancel, null);
+        AlertDialog pickerDialog = pickerBuilder.create();
+        pickerDialog.show();
+    }
+
     protected void init() {
 
         setContentView(R.layout.activity_main);
@@ -185,6 +248,7 @@ public class MainActivity extends AppCompatActivity
         Menu menu = navigationView.getMenu();
         notifItem = menu.findItem(R.id.notifItem);
         effectsItem = menu.findItem(R.id.effectsItem);
+        ringItem = menu.findItem(R.id.ringItem);
         navigationView.setNavigationItemSelectedListener(this);
 
         IntentFilter intentFilter = new IntentFilter(LogoPlusService.START_BROADCAST);
@@ -232,45 +296,66 @@ public class MainActivity extends AppCompatActivity
         appList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
-                final ColorPickerView picker = new ColorPickerView(MainActivity.this);
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
-                picker.setColor(info.color == null ? Color.GREEN : info.color);
-                picker.showAlpha(false);
-                picker.showHex(true);
-                picker.showPreview(true);
-                AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(MainActivity.this);
-                pickerBuilder
-                        .setTitle(null)
-                        .setView(picker)
-                        .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                AppNotification notif = new AppNotification(info.info.packageName);
-                                notif.color = picker.getColor();
-                                Message msg = dbHandler.obtainMessage(ADD_NOTIF, notif);
-                                dbHandler.sendMessage(msg);
-                                listAdapter.appsList.get(position).color =  notif.color ;
-                                listAdapter.notifyDataSetChanged();
-                            }
-                        })
-                        .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                Message msg = dbHandler.obtainMessage(DELETE_NOTIF, info.info.packageName);
-                                dbHandler.sendMessage(msg);
-                                listAdapter.appsList.get(position).color = null;
-                                listAdapter.notifyDataSetChanged();
-                            }
-                        })
-                        .setNegativeButton(R.string.cancel, null);
-                AlertDialog pickerDialog = pickerBuilder.create();
-                pickerDialog.show();
+                colorPickDialog(info.color == null ? Color.GREEN : info.color, new ColorPickCallback() {
+                    @Override
+                    public void run( int color) {
+                        AppNotification notif = new AppNotification(info.info.packageName);
+                        notif.color = color;
+                        Message msg = dbHandler.obtainMessage(ADD_NOTIF, notif);
+                        dbHandler.sendMessage(msg);
+                        listAdapter.appsList.get(position).color =  notif.color ;
+                        listAdapter.notifyDataSetChanged();
+                    }
+                }, new ColorPickCallback() {
+                    @Override
+                    public void run( int color) {
+                        Message msg = dbHandler.obtainMessage(DELETE_NOTIF, info.info.packageName);
+                        dbHandler.sendMessage(msg);
+                        listAdapter.appsList.get(position).color = null;
+                        listAdapter.notifyDataSetChanged();
+                    }
+                });
+            }
+        });
+
+        numberList = findViewById(R.id.numberList);
+        numberList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                final RingColor ringColor = ringColorAdapter.colList.get(position);
+                colorPickDialog(ringColor.color, new ColorPickCallback() {
+                    @Override
+                    public void run(int color) {
+                        ringColor.color = color;
+                        ringColorAdapter.notifyDataSetChanged();
+                        Message msg = dbHandler.obtainMessage(ADD_RING_COLOR, ringColor);
+                        dbHandler.sendMessage(msg);
+                    }
+                }, new ColorPickCallback() {
+                    @Override
+                    public void run(int color) {
+                        if (ringColor.number.equals(""))
+                        {
+                            ringColor.color = Color.BLACK;
+                            ringColorAdapter.notifyDataSetChanged();
+                            Message msg = dbHandler.obtainMessage(ADD_RING_COLOR, ringColor);
+                            dbHandler.sendMessage(msg);
+                        }
+                        else {
+                            ringColorAdapter.remove(ringColor);
+                            Message msg = dbHandler.obtainMessage(DELETE_RING_COLOR, ringColor.number);
+                            dbHandler.sendMessage(msg);
+                        }
+                    }
+                });
             }
         });
 
         packageManager = getPackageManager();
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         listSpinner = findViewById(R.id.progressBar_cyclic);
+        ringListSpinner = findViewById(R.id.ring_progressBar_cyclic);
         iconWidth =  (int)TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 30f, metrics);
         showSystem = findViewById(R.id.systemAppsChk);
         showSystem.setChecked(state.showSystemApps);
@@ -283,6 +368,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
         new LoadApplications().execute(showSystem.isChecked());
+        new LoadRingColors().execute();
 
         brightness = findViewById(R.id.brightnessBar);
         brightness.setProgress(state.brightness);
@@ -421,7 +507,25 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        askPermission();
+        ringEffectSwtich = findViewById(R.id.ringEffectSwitch);
+        ringEffectSwtich.setChecked(state.ringAnimation);
+        ringEffectSwtich.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                state.ringAnimation = isChecked;
+                syncUIState();
+                if (isChecked) askPermission();
+            }
+        });
+
+        addNumButton = findViewById(R.id.addRingColorButton);
+        addNumButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent contactPickerIntent = new Intent(Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI);
+                startActivityForResult(contactPickerIntent, RESULT_PICK_CONTACT);
+            }
+        });
     }
 
     @Override
@@ -459,11 +563,19 @@ public class MainActivity extends AppCompatActivity
             case 0:
                 notifItem.setChecked(true);
                 effectsItem.setChecked(false);
+                ringItem.setChecked(false);
                 break;
 
             case 1:
                 effectsItem.setChecked(true);
                 notifItem.setChecked(false);
+                ringItem.setChecked(false);
+                break;
+
+            case 2:
+                effectsItem.setChecked(false);
+                notifItem.setChecked(false);
+                ringItem.setChecked(true);
                 break;
         }
     }
@@ -499,6 +611,10 @@ public class MainActivity extends AppCompatActivity
         else if (id == R.id.effectsItem)
         {
             viewSwitch(1);
+        }
+        else if (id == R.id.ringItem)
+        {
+            viewSwitch(2);
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
@@ -579,6 +695,61 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private final class LoadRingColors extends AsyncTask<Void, Void, Void> {
+        @Override
+        protected Void doInBackground(Void... nothing) {
+            if (ringColorAdapter == null) {
+                List<RingColor> emptyList = new ArrayList<>();
+                ringColorAdapter = new RingColorAdapter(MainActivity.this, R.layout.ring_num_row, emptyList);
+            }
+            else {
+                ringColorAdapter.colList.clear();
+            }
+
+            ringColorAdapter.colList.addAll(Arrays.asList(dao.getRingColors()));
+
+            boolean defaultAdded = false;
+            for (RingColor ringColor : ringColorAdapter.colList)
+            {
+                if (ringColor.number.equals(""))
+                {
+                    defaultAdded = true;
+                    break;
+                }
+            }
+            if (!defaultAdded)
+            {
+                RingColor def = new RingColor("", Color.GREEN, "Default");
+                ringColorAdapter.colList.add(def);
+                Message msg = dbHandler.obtainMessage(ADD_RING_COLOR, def);
+                dbHandler.sendMessage(msg);
+            }
+
+            ringColorAdapter.colList.sort(new Comparator<RingColor>() {
+                @Override
+                public int compare(RingColor o1, RingColor o2) {
+                    if (o1.number.equals("")) return -1;
+                    if (o2.number.equals("")) return 1;
+                    return o1.friendlyName.compareTo(o2.friendlyName);
+                }
+            });
+
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void nothing) {
+            numberList.setAdapter(ringColorAdapter);
+            ringListSpinner.setVisibility(View.GONE);
+        }
+
+        @Override
+        protected void onPreExecute() {
+            numberList.setAdapter(null);
+            ringListSpinner.setVisibility(View.VISIBLE);
+        }
+    }
+
     private  void setServiceStatus(boolean status)
     {
         if (status)
@@ -595,46 +766,93 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    List<String> permissions = new ArrayList<String>();
-
-    private boolean askPermission() {
-
+    private void askPermission() {
 
         //int RECORD_AUDIO = checkSelfPermission(Manifest.permission.RECORD_AUDIO);
         //
         //if (RECORD_AUDIO != PackageManager.PERMISSION_GRANTED) {
         //    permissions.add(Manifest.permission.RECORD_AUDIO);
         //}
-
+        final List<String> permissions = new ArrayList<String>();
         int READ_PHONE_STATE = checkSelfPermission(Manifest.permission.READ_PHONE_STATE);
 
         if (READ_PHONE_STATE != PackageManager.PERMISSION_GRANTED) {
             permissions.add(Manifest.permission.READ_PHONE_STATE);
         }
 
-        if (!permissions.isEmpty()) {
-            requestPermissions(permissions.toArray(new String[permissions.size()]), 1);
-        } else
-            return false;
+        int READ_CALL_LOG = checkSelfPermission(Manifest.permission.READ_CALL_LOG);
 
-        return true;
+        if (READ_CALL_LOG != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.READ_CALL_LOG);
+        }
+
+        if (!permissions.isEmpty()) {
+            AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
+            aboutBuilder.setTitle(R.string.phonePermTitle);
+            aboutBuilder.setMessage(R.string.phonePermDesc);
+            aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.dismiss();
+                    requestPermissions(permissions.toArray(new String[permissions.size()]), 1);
+                }
+            });
+            aboutBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    ringEffectSwtich.setChecked(false);
+                }
+            });
+            AlertDialog aboutDialog = aboutBuilder.create();
+            aboutDialog.show();
+
+
+        }
 
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == 1) {
-
-            boolean result = true;
             for (int i = 0; i < permissions.length; i++) {
-                result = result && grantResults[i] == PackageManager.PERMISSION_GRANTED;
-            }
-            if (!result) {
-
-                // askPermission();
-            } else {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED)
+                {
+                    ringEffectSwtich.setChecked(false);
+                    return;
+                }
             }
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        if (resultCode == RESULT_OK) {
+            switch (requestCode) {
+                case RESULT_PICK_CONTACT:
+                    Cursor cursor;
+                    try {
+                        String phoneNo;
+                        String name;
+
+                        Uri uri = data.getData();
+                        cursor = getContentResolver().query(uri, null, null, null, null);
+                        cursor.moveToFirst();
+                        int  phoneIndex =cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
+                        int  nameIndex =cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME);
+                        phoneNo = cursor.getString(phoneIndex);
+                        name = cursor.getString(nameIndex);
+
+                        RingColor ringColor = new RingColor(phoneNo, Color.GREEN, name);
+                        Message msg = dbHandler.obtainMessage(ADD_RING_COLOR_ADD, ringColor);
+                        dbHandler.sendMessage(msg);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    break;
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 }

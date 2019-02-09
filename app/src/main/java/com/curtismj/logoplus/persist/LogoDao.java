@@ -25,4 +25,13 @@ public interface LogoDao {
 
     @Insert (onConflict = OnConflictStrategy.REPLACE)
     void saveUIState(UIState... state);
+
+    @Query("SELECT * FROM RingColor")
+    RingColor[] getRingColors();
+
+    @Insert (onConflict = OnConflictStrategy.REPLACE)
+    void addRingColor(RingColor... ringColors);
+
+    @Query("DELETE FROM RingColor WHERE number = :number")
+    void deleteRingColor(String number);
 }
