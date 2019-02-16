@@ -3,11 +3,17 @@ package com.curtismj.logoplus.fsm;
 import android.content.Context;
 import android.os.PowerManager;
 
-import com.curtismj.logoplus.LogoPlusService;
 import com.curtismj.logoplus.MicroCodeManager;
 import com.curtismj.logoplus.persist.UIState;
 
 public class BaseLogoMachine extends StateMachine {
+
+    public static final int EFFECT_NONE = 0;
+    public static final int EFFECT_STATIC= 1;
+    public static final int EFFECT_PULSE = 2;
+    public static final int EFFECT_RAINBOW = 3;
+    public static final int EFFECT_PINWHEEL = 4;
+
 
     public static final int STATE_SCREENON = 0;
     public static final int STATE_SCREENOFF = 1;
@@ -42,19 +48,19 @@ public class BaseLogoMachine extends StateMachine {
 
     protected void  runEffect() {
         switch (state.passiveEffect) {
-            case LogoPlusService.EFFECT_NONE:
+            case EFFECT_NONE:
                 blankLights();
                 break;
-            case LogoPlusService.EFFECT_STATIC:
+            case EFFECT_STATIC:
                 runProgram(MicroCodeManager.staticProgramBuild(state.passiveColor));
                 break;
-            case LogoPlusService.EFFECT_PULSE:
+            case EFFECT_PULSE:
                 runProgram(MicroCodeManager.pulseProgramBuild(state.effectLength, state.passiveColor));
                 break;
-            case LogoPlusService.EFFECT_RAINBOW:
+            case EFFECT_RAINBOW:
                 runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, false));
                 break;
-            case LogoPlusService.EFFECT_PINWHEEL:
+            case EFFECT_PINWHEEL:
                 runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, true));
                 break;
         }

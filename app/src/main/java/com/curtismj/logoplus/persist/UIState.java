@@ -2,7 +2,7 @@ package com.curtismj.logoplus.persist;
 
 import android.graphics.Color;
 
-import com.curtismj.logoplus.LogoPlusService;
+import com.curtismj.logoplus.fsm.BaseLogoMachine;
 
 import androidx.room.Entity;
 import androidx.room.PrimaryKey;
@@ -29,7 +29,7 @@ public class UIState {
         serviceEnabled = false;
         currentView = 0;
         brightness = 128;
-        passiveEffect = LogoPlusService.EFFECT_NONE;
+        passiveEffect = BaseLogoMachine.EFFECT_NONE;
         passiveColor = Color.GREEN;
         effectLength = 6000f;
         powerSave = true;

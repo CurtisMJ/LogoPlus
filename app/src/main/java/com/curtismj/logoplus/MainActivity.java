@@ -19,6 +19,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 
+import com.curtismj.logoplus.fsm.BaseLogoMachine;
 import com.curtismj.logoplus.persist.AppNotification;
 import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
@@ -395,13 +396,13 @@ public class MainActivity extends AppCompatActivity
         passiveGrp.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
             public void onCheckedChanged(RadioGroup group, int checkedId) {
-                int pref = LogoPlusService.EFFECT_NONE;
+                int pref = BaseLogoMachine.EFFECT_NONE;
                 switch (checkedId) {
-                    case R.id.noneRadio: pref = LogoPlusService.EFFECT_NONE; break;
-                    case R.id.staticRadio: pref = LogoPlusService.EFFECT_STATIC; break;
-                    case R.id.pulsingRadio: pref = LogoPlusService.EFFECT_PULSE; break;
-                    case R.id.rainbowRadio: pref = LogoPlusService.EFFECT_RAINBOW; break;
-                    case R.id.pinWheelRadio: pref = LogoPlusService.EFFECT_PINWHEEL; break;
+                    case R.id.noneRadio: pref = BaseLogoMachine.EFFECT_NONE; break;
+                    case R.id.staticRadio: pref = BaseLogoMachine.EFFECT_STATIC; break;
+                    case R.id.pulsingRadio: pref = BaseLogoMachine.EFFECT_PULSE; break;
+                    case R.id.rainbowRadio: pref = BaseLogoMachine.EFFECT_RAINBOW; break;
+                    case R.id.pinWheelRadio: pref = BaseLogoMachine.EFFECT_PINWHEEL; break;
                 }
                 state.passiveEffect = pref;
                 syncUIState();
@@ -409,10 +410,10 @@ public class MainActivity extends AppCompatActivity
         });
         RadioButton selectedButton = passiveGrp.findViewById(R.id.noneRadio);
         switch (state.passiveEffect) {
-            case LogoPlusService.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.staticRadio); break;
-            case LogoPlusService.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
-            case LogoPlusService.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
-            case LogoPlusService.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;
+            case BaseLogoMachine.EFFECT_STATIC: selectedButton = passiveGrp.findViewById(R.id.staticRadio); break;
+            case BaseLogoMachine.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
+            case BaseLogoMachine.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
+            case BaseLogoMachine.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;
         }
         selectedButton.setChecked(true);
         effectColor = findViewById(R.id.effectColorPick);

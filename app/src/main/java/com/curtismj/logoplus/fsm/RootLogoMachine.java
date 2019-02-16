@@ -228,7 +228,7 @@ public class RootLogoMachine extends BaseLogoMachine {
                 throw e;
             }
 
-            handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":ServiceWorkerLock");
+            handlerLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":RootStateMachine");
 
             handlerLock.acquire(10000);
             Log.d("debug", "got root");
