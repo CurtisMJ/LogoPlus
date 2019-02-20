@@ -14,7 +14,6 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EFFECT_RAINBOW = 3;
     public static final int EFFECT_PINWHEEL = 4;
 
-
     public static final int STATE_SCREENON = 0;
     public static final int STATE_SCREENOFF = 1;
     public static final int STATE_NOTIF_UPDATE = 2;
@@ -22,6 +21,7 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_VISUALIZER = 4;
     public static final int STATE_RINGING= 5;
     public static final int STATE_RESTORE_JUNCTION= 6;
+    public static final int STATE_POCKET_JUNCTION= 7;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
@@ -31,12 +31,15 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EVENT_EXIT_VISUALIZER=  5;
     public static final int EVENT_RING = 6;
     public static final int EVENT_STOP_RING = 7;
+    public static final int EVENT_POCKET_MODE = 8;
 
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
     public static final int LED_BLANK=  2;
     public static final int LED_VIS =  3;
     public static final int LED_RING =  4;
+
+    public static final int ARGUMENT_POCKET_MODE = 0;
 
     protected int LEDState;
     protected UIState state;
@@ -161,6 +164,15 @@ public class BaseLogoMachine extends StateMachine {
                 .Enter(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
+                        if (arg != null && (int)arg == ARGUMENT_POCKET_MODE)
+                        {
+                            if (LEDState != LED_BLANK) {
+                                LEDState = LED_BLANK;
+                                blankLights();
+                            }
+                            return;
+                        }
+
                         if (latestNotifs.length > 0 && LEDState != LED_NOTIF) {
                             LEDState = LED_NOTIF;
                             runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
@@ -180,6 +192,16 @@ public class BaseLogoMachine extends StateMachine {
                             LEDState = LED_BLANK;
                             blankLights();
                         }
+                    }
+                })
+
+                .Transition(STATE_SCREENOFF, EVENT_POCKET_MODE, STATE_POCKET_JUNCTION)
+                .Transition(STATE_POCKET_JUNCTION, EVENT_SCREENOFF, STATE_SCREENOFF)
+
+                .Enter(STATE_POCKET_JUNCTION, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        sm.Event(STATE_SCREENOFF, ARGUMENT_POCKET_MODE);
                     }
                 })
 

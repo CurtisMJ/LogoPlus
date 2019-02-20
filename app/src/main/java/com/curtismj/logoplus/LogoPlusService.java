@@ -51,6 +51,7 @@ public class LogoPlusService extends Service {
     public static final int PHONE_STATE = 8;
     public static final int FINAL_POCKET_CHECK = 9;
     public static final int SCREENON2 = 10;
+    public static final int REGISTER_LIGHT_SENSOR = 11;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
@@ -78,10 +79,10 @@ public class LogoPlusService extends Service {
     private float[] magnitudes = new float[2];
     private  float lux;
     private  float proximity;
-    private  boolean sensorsListening = false;
     private  boolean sensorSatisfactory = false;
     private boolean lightDataReceived = false;
     private boolean proximityDataReceived = false;
+    private boolean pocketModeWakelockHeld = false;
     private  int sensorBounces = 0;
 
     private PowerManager pm;
@@ -203,7 +204,6 @@ public class LogoPlusService extends Service {
         @Override
         public void onSensorChanged(SensorEvent event) {
             proximity = event.values[0];
-            Log.d("debug", "prox  " + proximity);
             proximityDataReceived = true;
         }
 
@@ -246,26 +246,14 @@ public class LogoPlusService extends Service {
         notifyStarted();
     }
 
-    private void  sensorState(boolean listen)
-    {
-        if (sensorsListening == listen) return;
-        if (listen)
-        {
-            Log.d("debug","Sensors starting");
-            mSensorManager.registerListener(accelListener, accelSensor, SensorManager.SENSOR_DELAY_NORMAL);
-            mSensorManager.registerListener(lightListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
-            mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
-            pocketModeWakelock.acquire(20000);
-        }
-        else
-        {
-            Log.d("debug","Sensors stopping");
-            mSensorManager.unregisterListener(accelListener);
-            mSensorManager.unregisterListener(lightListener);
-            mSensorManager.unregisterListener(proximityListener);
+    private void finishPocketMode() {
+        mSensorManager.unregisterListener(accelListener);
+        mSensorManager.unregisterListener(lightListener);
+        mSensorManager.unregisterListener(proximityListener);
+        if (pocketModeWakelockHeld) {
             pocketModeWakelock.release();
+            pocketModeWakelockHeld = false;
         }
-        sensorsListening = listen;
     }
 
     // Handler that receives messages from the thread
@@ -292,32 +280,48 @@ public class LogoPlusService extends Service {
 
                 case SCREENON2:
                     mServiceHandler.removeMessages(FINAL_POCKET_CHECK);
-                    sensorState(false);
+                    mServiceHandler.removeMessages(REGISTER_LIGHT_SENSOR);
+                    finishPocketMode();
                     break;
 
                 case SCREENOFF:
                     fsm.Event(BaseLogoMachine.EVENT_SCREENOFF);
 
-                    sensorState(true);
+                    /*
+                        We need to give the accelerometer time to calibrate. Also we cant really check immediately after the
+                        screen goes off as the user is probably still about to put the device into their pocket
+                     */
+                    mSensorManager.registerListener(accelListener, accelSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                    if (!pocketModeWakelockHeld) {
+                        pocketModeWakelock.acquire(20000);
+                        pocketModeWakelockHeld = true;
+                    }
                     sensorSatisfactory = false;
                     lightDataReceived = false;
                     proximityDataReceived = false;
                     sensorBounces = 0;
+                    msg = mServiceHandler.obtainMessage(REGISTER_LIGHT_SENSOR);
+                    mServiceHandler.sendMessageDelayed(msg, 3500);
                     msg = mServiceHandler.obtainMessage(FINAL_POCKET_CHECK);
                     mServiceHandler.sendMessageDelayed(msg, 5000);
 
                     break;
 
+                case REGISTER_LIGHT_SENSOR:
+                    mSensorManager.registerListener(lightListener, lightSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                    break;
+
                 case FINAL_POCKET_CHECK:
-                    if (sensorBounces < 3 && (!sensorSatisfactory || !lightDataReceived)) {
+                    if (sensorBounces < 3 && (!sensorSatisfactory || !lightDataReceived || !proximityDataReceived)) {
                         // keep going
+                        Log.d("Debug", "pocket mode not enough data, waiting...");
                         msg = mServiceHandler.obtainMessage(FINAL_POCKET_CHECK);
                         mServiceHandler.sendMessageDelayed(msg, 5000);
                         sensorBounces++;
                     }
                     else
                     {
-                        sensorState(false);
+                        finishPocketMode();
                         /*
                         Angles:
                         0: Parallel to face of device (lying flat "twist") A = atan(y/x)
@@ -334,7 +338,7 @@ public class LogoPlusService extends Service {
                         angles[0] = Math.abs(angles[0]);
                         angles[1] = Math.abs(angles[1]);
                         // pretty much equates to: Are we flat on a surface?
-                        boolean passed  = (magnitudes[0]  > magnitudes[1]) ? angles[0] > 30f && angles[0] < 150f : angles[1] > 30f && angles[1] < 150f;
+                        boolean passed  = (magnitudes[0] > magnitudes[1]) || angles[1] > 30f && angles[1] < 150f;
                         // under 5 lux light?
                         passed = passed ? lux < 5f : passed;
                         // less than 1cm proximity (binary sensor but whatevs)
@@ -343,6 +347,7 @@ public class LogoPlusService extends Service {
                         if (passed)
                         {
                             Log.d("debug", "pocket mode checks passed!");
+                            fsm.Event(BaseLogoMachine.EVENT_POCKET_MODE);
                         }
                     }
                     break;
@@ -395,6 +400,7 @@ public class LogoPlusService extends Service {
         }
     }
 
+
     private final class LogoBroadcastReceiver extends   BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -402,6 +408,8 @@ public class LogoPlusService extends Service {
             switch (intent.getAction()) {
                 case Intent.ACTION_SCREEN_OFF:
                     Log.d("debug", "screen off, request service resume");
+                    /* Proximity sensor needs to be registered earlier to keep the sensor awake for a moment */
+                    mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
                      msg = mServiceHandler.obtainMessage(SCREENOFF);
                     mServiceHandler.sendMessage(msg);
                     break;
