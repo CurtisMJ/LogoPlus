@@ -31,13 +31,9 @@ import com.curtismj.logoplus.persist.LogoDao;
 import com.curtismj.logoplus.persist.LogoDatabase;
 import com.curtismj.logoplus.persist.RingColor;
 import com.curtismj.logoplus.persist.UIState;
-import com.google.android.gms.common.util.ArrayUtils;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Locale;
-
-import androidx.room.util.StringUtil;
 
 public class LogoPlusService extends Service {
     public static final int SERVICE_START = 0;
@@ -75,14 +71,13 @@ public class LogoPlusService extends Service {
     private  LightListener lightListener;
     private  ProximityListener proximityListener;
     private float[] accel = new float[3];
-    private float[] angles = new float[2];
-    private float[] magnitudes = new float[2];
     private  float lux;
     private  float proximity;
     private  boolean sensorSatisfactory = false;
     private boolean lightDataReceived = false;
     private boolean proximityDataReceived = false;
     private boolean pocketModeWakelockHeld = false;
+    private boolean pocketModeEnabled = false;
     private  int sensorBounces = 0;
 
     private PowerManager pm;
@@ -137,7 +132,10 @@ public class LogoPlusService extends Service {
         Log.d("debug", "Build receiver");
         IntentFilter intentFilter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_USER_PRESENT);
-        intentFilter.addAction(Intent.ACTION_SCREEN_ON);
+        if (state.pocketMode) {
+            Log.d("debug", "Subscribing to screen on");
+            intentFilter.addAction(Intent.ACTION_SCREEN_ON);
+        }
         intentFilter.addAction(APPLY_EFFECT);
         intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
         if (state.ringAnimation) {
@@ -147,6 +145,7 @@ public class LogoPlusService extends Service {
         offReceiver = new LogoBroadcastReceiver();
         registerReceiver(offReceiver, intentFilter);
         phoneStateListening = state.ringAnimation;
+        pocketModeEnabled = state.pocketMode;
     }
 
     private void cacheRebuild()
@@ -287,23 +286,25 @@ public class LogoPlusService extends Service {
                 case SCREENOFF:
                     fsm.Event(BaseLogoMachine.EVENT_SCREENOFF);
 
+                    if (state.pocketMode) {
                     /*
                         We need to give the accelerometer time to calibrate. Also we cant really check immediately after the
                         screen goes off as the user is probably still about to put the device into their pocket
                      */
-                    mSensorManager.registerListener(accelListener, accelSensor, SensorManager.SENSOR_DELAY_NORMAL);
-                    if (!pocketModeWakelockHeld) {
-                        pocketModeWakelock.acquire(20000);
-                        pocketModeWakelockHeld = true;
+                        mSensorManager.registerListener(accelListener, accelSensor, SensorManager.SENSOR_DELAY_NORMAL);
+                        if (!pocketModeWakelockHeld) {
+                            pocketModeWakelock.acquire(20000);
+                            pocketModeWakelockHeld = true;
+                        }
+                        sensorSatisfactory = false;
+                        lightDataReceived = false;
+                        proximityDataReceived = false;
+                        sensorBounces = 0;
+                        msg = mServiceHandler.obtainMessage(REGISTER_LIGHT_SENSOR);
+                        mServiceHandler.sendMessageDelayed(msg, 3500);
+                        msg = mServiceHandler.obtainMessage(FINAL_POCKET_CHECK);
+                        mServiceHandler.sendMessageDelayed(msg, 5000);
                     }
-                    sensorSatisfactory = false;
-                    lightDataReceived = false;
-                    proximityDataReceived = false;
-                    sensorBounces = 0;
-                    msg = mServiceHandler.obtainMessage(REGISTER_LIGHT_SENSOR);
-                    mServiceHandler.sendMessageDelayed(msg, 3500);
-                    msg = mServiceHandler.obtainMessage(FINAL_POCKET_CHECK);
-                    mServiceHandler.sendMessageDelayed(msg, 5000);
 
                     break;
 
@@ -312,6 +313,8 @@ public class LogoPlusService extends Service {
                     break;
 
                 case FINAL_POCKET_CHECK:
+                    if (!state.pocketMode) break;
+
                     if (sensorBounces < 3 && (!sensorSatisfactory || !lightDataReceived || !proximityDataReceived)) {
                         // keep going
                         Log.d("Debug", "pocket mode not enough data, waiting...");
@@ -327,22 +330,28 @@ public class LogoPlusService extends Service {
                         0: Parallel to face of device (lying flat "twist") A = atan(y/x)
                         1: "Forward" tilt along centre line of device, perpendicular to face A = atan(y/z)
                         */
-                        angles[0] = (float)Math.toDegrees(Math.atan2(accel[1], accel[0]));
-                        angles[1] = (float)Math.toDegrees(Math.atan2(accel[1], accel[2]));
+                        float[] magnitudes = new float[2];
                         magnitudes[0] = (float)Math.sqrt(Math.pow(accel[0], 2) + Math.pow(accel[1], 2));
                         magnitudes[1] = (float)Math.sqrt(Math.pow(accel[2], 2) + Math.pow(accel[1], 2));
-                        Log.d("Debug", "final angles " + angles[0] + ","  + angles[1]);
                         Log.d("Debug", "final magnitudes " + magnitudes[0] + ","  + magnitudes[1]);
                         Log.d("Debug", "final lux " + lux);
                         Log.d("Debug", "final proximity " + proximity);
-                        angles[0] = Math.abs(angles[0]);
-                        angles[1] = Math.abs(angles[1]);
-                        // pretty much equates to: Are we flat on a surface?
-                        boolean passed  = (magnitudes[0] > magnitudes[1]) || angles[1] > 30f && angles[1] < 150f;
+                        boolean passed;
+                        //  Are we flat on a surface?
+                        if  (magnitudes[0] > magnitudes[1])
+                        {
+                            passed = true;
+                        }
+                        else
+                        {
+                            float angle = Math.abs((float)Math.toDegrees(Math.atan2(accel[1], accel[2])));
+                            Log.d("Debug", "final angle " + angle);
+                            passed = (angle > 30f && angle < 150f);
+                        }
                         // under 5 lux light?
-                        passed = passed ? lux < 5f : passed;
+                        passed = passed && lux < 5f;
                         // less than 1cm proximity (binary sensor but whatevs)
-                        passed = passed ? proximity < 1f : passed;
+                        passed = passed && proximity < 1f;
 
                         if (passed)
                         {
@@ -357,8 +366,15 @@ public class LogoPlusService extends Service {
 
                     cacheRebuild();
 
-                    if (state.ringAnimation != phoneStateListening) {
+                    if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled) {
                         buildReceiver();
+                    }
+
+                    if (!state.pocketMode)
+                    {
+                        mServiceHandler.removeMessages(FINAL_POCKET_CHECK);
+                        mServiceHandler.removeMessages(REGISTER_LIGHT_SENSOR);
+                        finishPocketMode();
                     }
 
                     fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
@@ -409,7 +425,7 @@ public class LogoPlusService extends Service {
                 case Intent.ACTION_SCREEN_OFF:
                     Log.d("debug", "screen off, request service resume");
                     /* Proximity sensor needs to be registered earlier to keep the sensor awake for a moment */
-                    mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
+                    if (state.pocketMode) mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
                      msg = mServiceHandler.obtainMessage(SCREENOFF);
                     mServiceHandler.sendMessage(msg);
                     break;

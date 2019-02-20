@@ -39,12 +39,11 @@ public class BaseLogoMachine extends StateMachine {
     public static final int LED_VIS =  3;
     public static final int LED_RING =  4;
 
-    public static final int ARGUMENT_POCKET_MODE = 0;
-
     protected int LEDState;
     protected UIState state;
     protected  int[] latestNotifs = new int[0];
     protected  int ringColor;
+    protected boolean inPocket = false;
 
     protected PowerManager pm;
     protected  Context context;
@@ -93,7 +92,7 @@ public class BaseLogoMachine extends StateMachine {
         }
     }
 
-    public BaseLogoMachine(Context _context, UIState initial) {
+    public BaseLogoMachine(Context _context, final UIState initial) {
         super();
 
         state = initial;
@@ -147,6 +146,7 @@ public class BaseLogoMachine extends StateMachine {
                             LEDState = LED_PASSIVE;
                             runEffect();
                         }
+                        inPocket = false;
                     }
                 })
                 .Exit(STATE_SCREENON, new StateMachine.Callback() {
@@ -164,7 +164,7 @@ public class BaseLogoMachine extends StateMachine {
                 .Enter(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        if (arg != null && (int)arg == ARGUMENT_POCKET_MODE)
+                        if (inPocket)
                         {
                             if (LEDState != LED_BLANK) {
                                 LEDState = LED_BLANK;
@@ -201,7 +201,8 @@ public class BaseLogoMachine extends StateMachine {
                 .Enter(STATE_POCKET_JUNCTION, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        sm.Event(STATE_SCREENOFF, ARGUMENT_POCKET_MODE);
+                        inPocket = true;
+                        sm.Event(STATE_SCREENOFF);
                     }
                 })
 

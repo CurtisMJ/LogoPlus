@@ -21,6 +21,7 @@ public class UIState {
     public float effectLength;
     public  boolean powerSave;
     public boolean ringAnimation;
+    public boolean pocketMode;
 
     public UIState()
     {
@@ -34,5 +35,6 @@ public class UIState {
         effectLength = 6000f;
         powerSave = true;
         ringAnimation = false;
+        pocketMode = false;
     }
 }

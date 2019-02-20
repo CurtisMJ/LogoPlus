@@ -32,4 +32,7 @@
     <string name="ringMenu">Ring Effect</string>
     <string name="phonePermTitle">Permissions Required</string>
     <string name="phonePermDesc">To use the ringer animation effect, Logo+ needs the following permissions:\n\nRead phone status and identity:\nAllows the app to detect when the phone is ringing\n\nRead call log:\nAllows the app to determine which number called so we can apply a specific color per number\n\nIf you press OK, the above permissions will be requested. If you press Cancel or deny the permissions the functionality will not be enabled</string>
+    <string name="pocketMode">Pocket Mode</string>
+    <string name="powerSaveDesc">When this option is toggled on, the passive effect will only run while the phone is unlocked. Notification effects will still run while locked. This can potentially save battery life.</string>
+    <string name="pocketModeDesc">When this option is toggled on, the passive effect will be turned off if, to a certain degree of certainty, it is determined that the device is currently in a pocket or bag. Once the lights are turned off, the phone must be unlocked before they will re-activate. Notification effects are disabled along with the passive effect. This can potentially save battery life.</string>
 </resources>

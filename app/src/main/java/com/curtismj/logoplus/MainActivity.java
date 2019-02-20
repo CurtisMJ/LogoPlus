@@ -52,6 +52,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.RadioButton;
@@ -293,6 +294,8 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        if (state.serviceEnabled) startService(serviceStartIntent);
+
         appList = findViewById(R.id.appList);
         appList.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
@@ -495,6 +498,54 @@ public class MainActivity extends AppCompatActivity
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 state.powerSave = isChecked;
                 syncUIState();
+            }
+        });
+
+        Switch pocketSwitch = findViewById(R.id.pocketModeSwitch);
+        pocketSwitch.setChecked(state.pocketMode);
+        pocketSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                state.pocketMode = isChecked;
+                syncUIState();
+            }
+        });
+
+        ImageView info = findViewById(R.id.powerSaveInfo);
+        info.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(MainActivity.this);
+                aboutBuilder.setTitle(R.string.powerSave);
+                aboutBuilder.setMessage(R.string.powerSaveDesc);
+                aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+                AlertDialog aboutDialog = aboutBuilder.create();
+                aboutDialog.show();
+            }
+        });
+
+        info = findViewById(R.id.pocketModeInfo);
+        info.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(MainActivity.this);
+                aboutBuilder.setTitle(R.string.pocketMode);
+                aboutBuilder.setMessage(R.string.pocketModeDesc);
+                aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+                AlertDialog aboutDialog = aboutBuilder.create();
+                aboutDialog.show();
             }
         });
 
