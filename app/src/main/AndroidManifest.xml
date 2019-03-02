@@ -20,24 +20,44 @@
         android:theme="@style/AppTheme"
         tools:ignore="GoogleAppIndexingWarning">
         <receiver
+            android:name=".automation.ActionFireReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING"/>
+            </intent-filter>
+        </receiver>
+
+        <activity
+            android:name=".automation.ActionEditActivity"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/title_activity_action"
+            android:targetActivity=".automation.ActionEditActivity">
+            <intent-filter>
+                <action android:name="com.twofortyfouram.locale.intent.action.EDIT_SETTING" />
+            </intent-filter>
+        </activity>
+
+        <receiver
             android:name=".LogoPlusReceiver"
             android:enabled="true"
             android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
         <service
             android:name=".LogoPlusService"
+            android:description="@string/service_desc"
             android:enabled="true"
             android:exported="false"
-            android:process=":ServiceProcess"
-            android:description="@string/service_desc"/>
-
-        <service android:name=".LogoPlusNotificationListener"
-            android:process=":ServiceProcess"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            android:process=":ServiceProcess" />
+        <service
+            android:name=".LogoPlusNotificationListener"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:process=":ServiceProcess">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
