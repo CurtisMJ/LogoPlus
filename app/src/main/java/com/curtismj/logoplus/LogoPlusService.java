@@ -42,8 +42,6 @@ public class LogoPlusService extends Service {
     public static final int SCREENOFF = 3;
     public static final int APPLY_EFFECT_MSG = 4;
     public static final int START_BOUNCE = 5;
-    public static final int VIS_START = 6;
-    public static final int VIS_STOP = 7;
     public static final int PHONE_STATE = 8;
     public static final int FINAL_POCKET_CHECK = 9;
     public static final int SCREENON2 = 10;
@@ -378,16 +376,6 @@ public class LogoPlusService extends Service {
                     }
 
                     fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
-                    break;
-
-                case VIS_START:
-                    Log.d("debug", "vis test");
-                    fsm.Event(BaseLogoMachine.EVENT_ENTER_VISUALIZER);
-                    break;
-
-                case VIS_STOP:
-                    Log.d("debug", "vis stop");
-                    fsm.Event(BaseLogoMachine.EVENT_EXIT_VISUALIZER);
                     break;
 
                 case START_BOUNCE:

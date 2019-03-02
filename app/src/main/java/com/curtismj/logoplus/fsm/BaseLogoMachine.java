@@ -18,7 +18,6 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_SCREENOFF = 1;
     public static final int STATE_NOTIF_UPDATE = 2;
     public static final int STATE_STATE_UPDATE = 3;
-    public static final int STATE_VISUALIZER = 4;
     public static final int STATE_RINGING= 5;
     public static final int STATE_RESTORE_JUNCTION= 6;
     public static final int STATE_POCKET_JUNCTION= 7;
@@ -27,8 +26,6 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EVENT_SCREENOFF = 1;
     public static final int EVENT_NOTIF_UPDATE =  2;
     public static final int EVENT_STATE_UPDATE =  3;
-    public static final int EVENT_ENTER_VISUALIZER=  4;
-    public static final int EVENT_EXIT_VISUALIZER=  5;
     public static final int EVENT_RING = 6;
     public static final int EVENT_STOP_RING = 7;
     public static final int EVENT_POCKET_MODE = 8;
@@ -36,7 +33,6 @@ public class BaseLogoMachine extends StateMachine {
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
     public static final int LED_BLANK=  2;
-    public static final int LED_VIS =  3;
     public static final int LED_RING =  4;
 
     protected int LEDState;
