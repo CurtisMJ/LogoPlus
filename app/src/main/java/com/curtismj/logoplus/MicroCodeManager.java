@@ -111,12 +111,12 @@ public class MicroCodeManager {
 
         public  String dump()
         {
-            String fin = "";
+            StringBuilder build = new StringBuilder(program.length * 4);
             for (int i = 0; i < program.length; i++)
             {
-                fin += String.format("%04X", program[i]);
+                build.append(String.format("%04X", program[i]));
             }
-            return  fin;
+            return build.toString();
         }
     }
 

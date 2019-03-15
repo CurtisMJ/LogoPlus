@@ -82,116 +82,7 @@
             tools:context=".MainActivity"
             tools:showIn="@layout/app_bar_main">
 
-            <TextView
-                android:id="@+id/effectsLbl"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/passiveEffectLbl"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
-
-            <RadioGroup
-                android:id="@+id/passiveGroup"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="32dp"
-                android:layout_marginTop="8dp"
-                android:paddingBottom="16dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/effectsLbl">
-
-                <RadioButton
-                    android:id="@+id/noneRadio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/none_text" />
-
-                <RadioButton
-                    android:id="@+id/staticRadio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/static_text" />
-
-                <RadioButton
-                    android:id="@+id/pulsingRadio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/pulsing" />
-
-                <RadioButton
-                    android:id="@+id/rainbowRadio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/rainbow" />
-
-                <RadioButton
-                    android:id="@+id/pinWheelRadio"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/pinwheel" />
-            </RadioGroup>
-
-            <TextView
-                android:id="@+id/effectColorLbl"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="8dp"
-                android:text="@string/effectColorLbl"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/passiveGroup" />
-
-            <View
-                android:id="@+id/effectColorPick"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_marginStart="32dp"
-                android:layout_marginTop="16dp"
-                android:background="#00FF00"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/effectColorLbl" />
-
-            <TextView
-                android:id="@+id/effectLengthLbl"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="24dp"
-                android:text="@string/effectTimeLbl"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/effectColorPick" />
-
-            <SeekBar
-                android:id="@+id/effectLengthBar"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_marginStart="16dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="8dp"
-                android:max="10000"
-                android:progress="6000"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintEnd_toStartOf="@id/effectLengthIndicator"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/effectLengthLbl" />
-
-            <EditText
-                android:id="@+id/effectLengthIndicator"
-                android:layout_width="64dp"
-                android:layout_height="48dp"
-                android:layout_marginEnd="24dp"
-                android:ems="10"
-                android:inputType="number"
-                android:text="6000"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/effectLengthBar" />
+            <include android:id="@+id/passiveConfig" layout="@layout/passive_config" />
 
             <Switch
                 android:id="@+id/powerSaveSwitch"
@@ -202,7 +93,7 @@
                 android:switchPadding="16dp"
                 android:text="@string/powerSave"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/effectLengthBar" />
+                app:layout_constraintTop_toBottomOf="@id/passiveConfig" />
 
             <ImageView
                 android:id="@+id/powerSaveInfo"

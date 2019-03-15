@@ -40,28 +40,16 @@ public class BaseLogoMachine extends StateMachine {
     protected  int[] latestNotifs = new int[0];
     protected  int ringColor;
     protected boolean inPocket = false;
+    protected String[] currentPassiveProgram;
 
     protected PowerManager pm;
     protected  Context context;
 
-    protected void  runEffect() {
-        switch (state.passiveEffect) {
-            case EFFECT_NONE:
-                blankLights();
-                break;
-            case EFFECT_STATIC:
-                runProgram(MicroCodeManager.staticProgramBuild(state.passiveColor));
-                break;
-            case EFFECT_PULSE:
-                runProgram(MicroCodeManager.pulseProgramBuild(state.effectLength, state.passiveColor));
-                break;
-            case EFFECT_RAINBOW:
-                runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, false));
-                break;
-            case EFFECT_PINWHEEL:
-                runProgram(MicroCodeManager.rainbowProgramBuild(state.effectLength, true));
-                break;
-        }
+    private void  runEffect() {
+        if (currentPassiveProgram != null)
+            runProgram(currentPassiveProgram);
+        else
+            blankLights();
     }
 
     protected void blankLights() {
@@ -72,18 +60,24 @@ public class BaseLogoMachine extends StateMachine {
         // base does nothing
     }
 
-    private void backtrackState(int otherState, StateMachine sm)
+    private void updateState(UIState _state)
     {
-        switch (otherState)
-        {
-            case STATE_SCREENON:
-                sm.Event(EVENT_SCREENON);
+        state = _state;
+        switch (state.passiveEffect) {
+            case EFFECT_NONE:
+                currentPassiveProgram = null;
                 break;
-            case STATE_SCREENOFF:
-                sm.Event(EVENT_SCREENOFF);
+            case EFFECT_STATIC:
+                currentPassiveProgram = MicroCodeManager.staticProgramBuild(state.passiveColor);
                 break;
-            case STATE_RINGING:
-                sm.Event(EVENT_RING);
+            case EFFECT_PULSE:
+                currentPassiveProgram = MicroCodeManager.pulseProgramBuild(state.effectLength, state.passiveColor);
+                break;
+            case EFFECT_RAINBOW:
+                currentPassiveProgram = MicroCodeManager.rainbowProgramBuild(state.effectLength, false);
+                break;
+            case EFFECT_PINWHEEL:
+                currentPassiveProgram = MicroCodeManager.rainbowProgramBuild(state.effectLength, true);
                 break;
         }
     }
@@ -91,44 +85,48 @@ public class BaseLogoMachine extends StateMachine {
     public BaseLogoMachine(Context _context, final UIState initial) {
         super();
 
-        state = initial;
+        updateState(initial);
         context = _context;
         pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
+        // These states can be interrupted by global state update events
+        final int[] updatableStates = new int[]{
+          STATE_SCREENON,
+          STATE_SCREENOFF,
+          STATE_RINGING};
+
+        final int[][] updatableFanOut = new int[][] {
+          {EVENT_SCREENON,STATE_SCREENON},
+          {EVENT_SCREENOFF,STATE_SCREENOFF},
+          {EVENT_RING,STATE_RINGING}
+        };
+
         this
                 // Mid state notif updates (usually silent)
-                .Transition(STATE_SCREENON, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
-                .Transition(STATE_SCREENOFF, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
-                .Transition(STATE_RINGING, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
+                .FanIn(updatableStates, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
 
                 // Notif update back to state
-                .Transition(STATE_NOTIF_UPDATE, EVENT_SCREENON, STATE_SCREENON)
-                .Transition(STATE_NOTIF_UPDATE, EVENT_SCREENOFF, STATE_SCREENOFF)
-                .Transition(STATE_NOTIF_UPDATE, EVENT_RING, STATE_RINGING)
+                .FanOut(STATE_NOTIF_UPDATE, updatableFanOut)
 
                 // Mid state global settings updates (usually NOT silent)
-                .Transition(STATE_SCREENON, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
-                .Transition(STATE_SCREENOFF, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
-                .Transition(STATE_RINGING, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
+                .FanIn(updatableStates, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
 
                 // Global settings back to state
-                .Transition(STATE_STATE_UPDATE, EVENT_SCREENON, STATE_SCREENON)
-                .Transition(STATE_STATE_UPDATE, EVENT_SCREENOFF, STATE_SCREENOFF)
-                .Transition(STATE_STATE_UPDATE, EVENT_RING, STATE_RINGING)
+                .FanOut(STATE_STATE_UPDATE, updatableFanOut)
 
                 .Enter(STATE_NOTIF_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         latestNotifs = (int[])arg;
-                        backtrackState(otherState, sm);
+                        sm.ReverseFanIn(updatableFanOut, otherState);
                     }
                 })
 
                 .Enter(STATE_STATE_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        state = (UIState) arg;
-                        backtrackState(otherState, sm);
+                        updateState((UIState) arg);
+                        sm.ReverseFanIn(updatableFanOut, otherState);
                     }
                 })
 
@@ -202,8 +200,7 @@ public class BaseLogoMachine extends StateMachine {
                     }
                 })
 
-                .Transition(STATE_SCREENOFF, EVENT_RING, STATE_RINGING)
-                .Transition(STATE_SCREENON, EVENT_RING, STATE_RINGING)
+                .FanIn(new int[] { STATE_SCREENOFF, STATE_SCREENON }, EVENT_RING, STATE_RINGING)
                 .Transition(STATE_RINGING, EVENT_STOP_RING, STATE_RESTORE_JUNCTION)
 
                 .Enter(STATE_RINGING, new Callback() {

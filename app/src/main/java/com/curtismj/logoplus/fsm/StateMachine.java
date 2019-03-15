@@ -73,6 +73,44 @@ public class StateMachine {
         return this;
     }
 
+    public StateMachine FanOut(int root, int[][] fanPairs)
+    {
+        // Allows defining multiple events to fan out to multiple states
+        // from a single root state
+
+        for (int i = 0; i < fanPairs.length; i++)
+        {
+            Transition(root, fanPairs[i][0], fanPairs[i][1]);
+        }
+
+        return this;
+    }
+
+    public StateMachine FanIn(int[] states, int event, int convergeState)
+    {
+        // Allows defining multiple events to converge onto a single state
+        // in response to a single event
+
+        for (int i = 0; i < states.length; i++)
+        {
+            Transition(states[i], event, convergeState);
+        }
+
+        return this;
+    }
+
+    public StateMachine ReverseFanIn(int[][] fanout, int oldState)
+    {
+        for (int i = 0; i < fanout.length; i++)
+        {
+            if (fanout[i][1] == oldState)
+            {
+                return Event(fanout[i][0]);
+            }
+        }
+        return this;
+    }
+
     public void cleanup()
     {
 
