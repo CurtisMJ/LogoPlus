@@ -37,7 +37,11 @@
     <string name="pocketModeDesc">When this option is toggled on, the passive effect will be turned off if, to a certain degree of certainty, it is determined that the device is currently in a pocket or bag. Once the lights are turned off, the phone must be unlocked before they will re-activate. Notification effects are disabled along with the passive effect. This can potentially save battery life.</string>
     <string name="title_activity_action">Logo+ Automation Action</string>
     <string name="autoInstPrompt">Please select a value to change...</string>
-    <string name="instsLbl">Automation Instructions to Execute:</string>
+    <string name="instsLbl">Automation Instructions to Execute (Tasker variables supported in all fields):</string>
     <string name="passiveAutoHint">Enter effect no</string>
     <string name="remove">Remove</string>
+    <string name="autoAllow">Allow Automation</string>
+    <string name="passiveLenAutoHint">Effect length (ms)</string>
+    <string name="passiveUnlockHint">Integer (0 is false)</string>
+    <string name="autoBrightHint">Integer (0-255)</string>
 </resources>

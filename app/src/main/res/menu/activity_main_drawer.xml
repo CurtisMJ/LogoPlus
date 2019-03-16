@@ -27,4 +27,9 @@
         android:title="@string/service_status_text"
         app:actionLayout="@layout/switch_item"
         app:showAsAction="always" />
+    <item
+        android:id="@+id/automation_switch"
+        android:title="@string/autoAllow"
+        app:actionLayout="@layout/switch_item"
+        app:showAsAction="always" />
 </menu>

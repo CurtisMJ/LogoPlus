@@ -116,7 +116,7 @@ public class LogoPlusNotificationListener extends NotificationListenerService im
                     String pkg = (String) msg.obj;
                     if (cache.containsKey(pkg)) {
                         AppNotification notif = cache.get(pkg);
-                        if (notif.color != null) {
+                        if (notif.color != null && !notifs.containsKey(notif.packageName)) {
                             notifs.put(notif.packageName, notif.color);
                             notifyServiceChange();
                         }

@@ -22,7 +22,8 @@
         <receiver
             android:name=".automation.ActionFireReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:process=":ServiceProcess" >
             <intent-filter>
                 <action android:name="com.twofortyfouram.locale.intent.action.FIRE_SETTING"/>
             </intent-filter>

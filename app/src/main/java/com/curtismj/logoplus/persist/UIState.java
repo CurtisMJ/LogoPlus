@@ -22,6 +22,7 @@ public class UIState {
     public  boolean powerSave;
     public boolean ringAnimation;
     public boolean pocketMode;
+    public boolean automationAllowed;
 
     public UIState()
     {
@@ -36,5 +37,6 @@ public class UIState {
         powerSave = true;
         ringAnimation = false;
         pocketMode = false;
+        automationAllowed = false;
     }
 }

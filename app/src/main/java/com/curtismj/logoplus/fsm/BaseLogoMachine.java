@@ -45,6 +45,11 @@ public class BaseLogoMachine extends StateMachine {
     protected PowerManager pm;
     protected  Context context;
 
+    public static  boolean ValidateEffectNo(int no)
+    {
+        return (no >= 0) && (no <= 4);
+    }
+
     private void  runEffect() {
         if (currentPassiveProgram != null)
             runProgram(currentPassiveProgram);
@@ -167,14 +172,18 @@ public class BaseLogoMachine extends StateMachine {
                             return;
                         }
 
-                        if (latestNotifs.length > 0 && LEDState != LED_NOTIF) {
-                            LEDState = LED_NOTIF;
-                            runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
+                        if (latestNotifs.length > 0 ) {
+                            if (LEDState != LED_NOTIF) {
+                                LEDState = LED_NOTIF;
+                                runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
+                            }
                         }
-                        else if (!state.powerSave && LEDState != LED_PASSIVE)
+                        else if (!state.powerSave)
                         {
-                            LEDState = LED_PASSIVE;
-                            runEffect();
+                            if (LEDState != LED_PASSIVE) {
+                                LEDState = LED_PASSIVE;
+                                runEffect();
+                            }
                         }
                     }
                 })

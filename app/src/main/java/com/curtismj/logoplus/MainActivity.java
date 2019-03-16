@@ -73,6 +73,7 @@ public class MainActivity extends AppCompatActivity
 
     private static final int RESULT_PICK_CONTACT = 1;
     Switch serviceStatusSwitch;
+    Switch automationSwitch;
     Switch ringEffectSwtich;
 
     ListView appList, numberList;
@@ -497,6 +498,19 @@ public class MainActivity extends AppCompatActivity
                 startActivityForResult(contactPickerIntent, RESULT_PICK_CONTACT);
             }
         });
+
+        MenuItem autoSwitchItem = menu.findItem(R.id.automation_switch);
+        automationSwitch = autoSwitchItem.getActionView().findViewWithTag("innerSwitch");
+        automationSwitch.setEnabled(true);
+        automationSwitch.setChecked(state.automationAllowed);
+        automationSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                state.automationAllowed = isChecked;
+                syncUIState();
+            }
+        });
+
     }
 
     @Override

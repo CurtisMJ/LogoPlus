@@ -24,6 +24,7 @@ import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
 import android.util.Log;
 
+import com.curtismj.logoplus.automation.ActionFireReceiver;
 import com.curtismj.logoplus.fsm.BaseLogoMachine;
 import com.curtismj.logoplus.fsm.RootLogoMachine;
 import com.curtismj.logoplus.fsm.StateMachine;
@@ -46,10 +47,12 @@ public class LogoPlusService extends Service {
     public static final int FINAL_POCKET_CHECK = 9;
     public static final int SCREENON2 = 10;
     public static final int REGISTER_LIGHT_SENSOR = 11;
+    public static final int AUTOMATION = 12;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
+    public static  final  String FIRE_AUTOMATION = BuildConfig.APPLICATION_ID + ".FireAutomation";
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
@@ -136,6 +139,7 @@ public class LogoPlusService extends Service {
         }
         intentFilter.addAction(APPLY_EFFECT);
         intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
+        intentFilter.addAction(FIRE_AUTOMATION);
         if (state.ringAnimation) {
             Log.d("debug", "Subscribing to phone state");
             intentFilter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
@@ -360,22 +364,7 @@ public class LogoPlusService extends Service {
                     break;
 
                 case APPLY_EFFECT_MSG:
-                    state = dao.getUIState();
-
-                    cacheRebuild();
-
-                    if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled) {
-                        buildReceiver();
-                    }
-
-                    if (!state.pocketMode)
-                    {
-                        mServiceHandler.removeMessages(FINAL_POCKET_CHECK);
-                        mServiceHandler.removeMessages(REGISTER_LIGHT_SENSOR);
-                        finishPocketMode();
-                    }
-
-                    fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
+                    updateGlobalState();
                     break;
 
                 case START_BOUNCE:
@@ -400,8 +389,88 @@ public class LogoPlusService extends Service {
                         }
                     }
                     break;
+
+                case AUTOMATION:
+                    if (state.automationAllowed) {
+                        Bundle data = msg.getData();
+                        boolean updateUIState = false;
+                        if (data.containsKey(ActionFireReceiver.KEY_PASSIVE_EFFECT))
+                        {
+                            try {
+                                int effect = Integer.parseInt(data.getString(ActionFireReceiver.KEY_PASSIVE_EFFECT));
+                                if (BaseLogoMachine.ValidateEffectNo(effect)) {
+                                    state.passiveEffect = effect;
+                                    updateUIState = true;
+                                }
+                            }
+                            catch (NumberFormatException ex) {}
+                        }
+                        if (data.containsKey(ActionFireReceiver.KEY_PASSIVE_COLOR))
+                        {
+                            try {
+                                state.passiveColor = Integer.parseInt(data.getString(ActionFireReceiver.KEY_PASSIVE_COLOR));
+                                updateUIState = true;
+                            }
+                            catch (NumberFormatException ex) {}
+                        }
+                        if (data.containsKey(ActionFireReceiver.KEY_PASSIVE_LEN))
+                        {
+                            try {
+                                state.effectLength = Integer.parseInt(data.getString(ActionFireReceiver.KEY_PASSIVE_LEN));
+                                updateUIState = true;
+                            }
+                            catch (NumberFormatException ex) {}
+                        }
+                        if (data.containsKey(ActionFireReceiver.KEY_PASSIVE_LOCK))
+                        {
+                            try {
+                                state.powerSave = (Integer.parseInt(data.getString(ActionFireReceiver.KEY_PASSIVE_LOCK)) != 0);
+                                updateUIState = true;
+                            }
+                            catch (NumberFormatException ex) {}
+                        }
+                        if (data.containsKey(ActionFireReceiver.KEY_BRIGHTNESS))
+                        {
+                            try {
+                                int bright = Integer.parseInt(data.getString(ActionFireReceiver.KEY_BRIGHTNESS));
+                                if (bright >= 0 && bright <= 255) {
+                                    state.brightness = bright;
+                                    updateUIState = true;
+                                }
+                            }
+                            catch (NumberFormatException ex) {}
+                        }
+
+                        if (updateUIState)
+                        {
+                            dao.saveUIState(state);
+                            fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
+                        }
+
+                    }
+
+                    break;
             }
         }
+    }
+
+    private void updateGlobalState() {
+        state = dao.getUIState();
+
+        cacheRebuild();
+
+        if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled) {
+            buildReceiver();
+        }
+
+        if (!state.pocketMode)
+        {
+            mServiceHandler.removeMessages(FINAL_POCKET_CHECK);
+            mServiceHandler.removeMessages(REGISTER_LIGHT_SENSOR);
+            finishPocketMode();
+        }
+
+        fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
     }
 
 
@@ -442,6 +511,14 @@ public class LogoPlusService extends Service {
                     msg = mServiceHandler.obtainMessage(PHONE_STATE);
                     msg.setData(intent.getExtras());
                     mServiceHandler.sendMessage(msg);
+                    break;
+                case FIRE_AUTOMATION:
+                    if (state.automationAllowed) {
+                        Log.d("debug", "automation update");
+                        msg = mServiceHandler.obtainMessage(AUTOMATION);
+                        msg.setData(intent.getExtras());
+                        mServiceHandler.sendMessage(msg);
+                    }
                     break;
             }
         }

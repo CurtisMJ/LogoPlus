@@ -5,11 +5,7 @@
         <item>Passive color</item>
         <item>Passive length</item>
         <item>Passive while unlocked</item>
-        <item>Pocket mode</item>
         <item>Brightness</item>
-        <item>App color</item>
-        <item>Ring color</item>
-        <item>Ring effect enabled</item>
 
     </string-array>
 </resources>
