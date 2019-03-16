@@ -36,4 +36,8 @@
     <string name="powerSaveDesc">When this option is toggled on, the passive effect will only run while the phone is unlocked. Notification effects will still run while locked. This can potentially save battery life.</string>
     <string name="pocketModeDesc">When this option is toggled on, the passive effect will be turned off if, to a certain degree of certainty, it is determined that the device is currently in a pocket or bag. Once the lights are turned off, the phone must be unlocked before they will re-activate. Notification effects are disabled along with the passive effect. This can potentially save battery life.</string>
     <string name="title_activity_action">Logo+ Automation Action</string>
+    <string name="autoInstPrompt">Please select a value to change...</string>
+    <string name="instsLbl">Automation Instructions to Execute:</string>
+    <string name="passiveAutoHint">Enter effect no</string>
+    <string name="remove">Remove</string>
 </resources>

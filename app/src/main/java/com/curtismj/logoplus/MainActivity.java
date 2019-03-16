@@ -62,13 +62,11 @@ import android.widget.Switch;
 import android.widget.ViewFlipper;
 
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
-import com.rarepebble.colorpicker.ColorPickerView;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
@@ -197,39 +195,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    private  interface  ColorPickCallback
-    {
-        void run(int color);
-    }
-
-    private void colorPickDialog(int initial, final ColorPickCallback ok, final ColorPickCallback remove)
-    {
-        final ColorPickerView picker = new ColorPickerView(MainActivity.this);
-        picker.setColor(initial);
-        picker.showAlpha(false);
-        picker.showHex(true);
-        picker.showPreview(true);
-        AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(MainActivity.this);
-        pickerBuilder
-                .setTitle(null)
-                .setView(picker)
-                .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        ok.run(picker.getColor());
-                    }
-                })
-                .setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        remove.run(picker.getColor());
-                    }
-                })
-                .setNegativeButton(R.string.cancel, null);
-        AlertDialog pickerDialog = pickerBuilder.create();
-        pickerDialog.show();
-    }
-
     protected void init() {
 
         setContentView(R.layout.activity_main);
@@ -264,18 +229,7 @@ public class MainActivity extends AppCompatActivity
                 } else if (intent.getAction().equals(LogoPlusService.START_FAIL_BROADCAST)) {
                     state.serviceEnabled = false;
                     syncUIState();
-                    AlertDialog.Builder errorBuilder = new AlertDialog.Builder(MainActivity.this);
-                    errorBuilder.setTitle(R.string.failed);
-                    errorBuilder.setMessage(R.string.failed_start);
-                    errorBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-
-                        @Override
-                        public void onClick(DialogInterface dialog, int which) {
-                            dialog.dismiss();
-                        }
-                    });
-                    AlertDialog errorDialog = errorBuilder.create();
-                    errorDialog.show();
+                    CommonUtils.genericDialog(MainActivity.this, R.string.failed, R.string.failed_start);
                     serviceStatusSwitch.setEnabled(true);
                     serviceStatusSwitch.setChecked(false);
                 }
@@ -301,7 +255,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onItemClick(AdapterView<?> parent, View view, final int position, long id) {
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
-                colorPickDialog(info.color == null ? Color.GREEN : info.color, new ColorPickCallback() {
+                CommonUtils.colorPickDialog(MainActivity.this, info.color == null ? Color.GREEN : info.color, new CommonUtils.ColorPickCallback() {
                     @Override
                     public void run( int color) {
                         AppNotification notif = new AppNotification(info.info.packageName);
@@ -311,7 +265,7 @@ public class MainActivity extends AppCompatActivity
                         listAdapter.appsList.get(position).color =  notif.color ;
                         listAdapter.notifyDataSetChanged();
                     }
-                }, new ColorPickCallback() {
+                }, new CommonUtils.ColorPickCallback() {
                     @Override
                     public void run( int color) {
                         Message msg = dbHandler.obtainMessage(DELETE_NOTIF, info.info.packageName);
@@ -328,7 +282,7 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 final RingColor ringColor = ringColorAdapter.colList.get(position);
-                colorPickDialog(ringColor.color, new ColorPickCallback() {
+                CommonUtils.colorPickDialog(MainActivity.this, ringColor.color, new CommonUtils.ColorPickCallback() {
                     @Override
                     public void run(int color) {
                         ringColor.color = color;
@@ -336,7 +290,7 @@ public class MainActivity extends AppCompatActivity
                         Message msg = dbHandler.obtainMessage(ADD_RING_COLOR, ringColor);
                         dbHandler.sendMessage(msg);
                     }
-                }, new ColorPickCallback() {
+                }, new CommonUtils.ColorPickCallback() {
                     @Override
                     public void run(int color) {
                         if (ringColor.number.equals(""))
@@ -424,27 +378,14 @@ public class MainActivity extends AppCompatActivity
         effectColor.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                final ColorPickerView picker = new ColorPickerView(MainActivity.this);
-                picker.setColor(state.passiveColor);
-                picker.showAlpha(false);
-                picker.showHex(true);
-                picker.showPreview(true);
-                AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(MainActivity.this);
-                pickerBuilder
-                        .setTitle(null)
-                        .setView(picker)
-                        .setPositiveButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-                            @Override
-                            public void onClick(DialogInterface dialog, int which) {
-                                final int color = picker.getColor();
-                                state.passiveColor = color;
-                                syncUIState();
-                                effectColor.setBackgroundColor(color);
-                            }
-                        })
-                        .setNegativeButton(R.string.cancel, null);
-                AlertDialog pickerDialog = pickerBuilder.create();
-                pickerDialog.show();
+                CommonUtils.colorPickDialog(MainActivity.this, state.passiveColor, new CommonUtils.ColorPickCallback() {
+                    @Override
+                    public void run(int color) {
+                        state.passiveColor = color;
+                        syncUIState();
+                        effectColor.setBackgroundColor(color);
+                    }
+                }, null);
             }
         });
 
@@ -515,18 +456,7 @@ public class MainActivity extends AppCompatActivity
         info.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(MainActivity.this);
-                aboutBuilder.setTitle(R.string.powerSave);
-                aboutBuilder.setMessage(R.string.powerSaveDesc);
-                aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-                AlertDialog aboutDialog = aboutBuilder.create();
-                aboutDialog.show();
+                CommonUtils.genericDialog(MainActivity.this, R.string.powerSave, R.string.powerSaveDesc);
             }
         });
 
@@ -534,18 +464,7 @@ public class MainActivity extends AppCompatActivity
         info.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(MainActivity.this);
-                aboutBuilder.setTitle(R.string.pocketMode);
-                aboutBuilder.setMessage(R.string.pocketModeDesc);
-                aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
-
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        dialog.dismiss();
-                    }
-                });
-                AlertDialog aboutDialog = aboutBuilder.create();
-                aboutDialog.show();
+                CommonUtils.genericDialog(MainActivity.this, R.string.pocketMode, R.string.pocketModeDesc);
             }
         });
 
