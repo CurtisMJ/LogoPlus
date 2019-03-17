@@ -136,6 +136,13 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/pinwheel" />
+
+                <RadioButton
+                    android:id="@+id/rollRadio"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/rolling" />
             </RadioGroup>
 
             <TextView

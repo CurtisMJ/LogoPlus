@@ -2,6 +2,7 @@ package com.curtismj.logoplus.fsm;
 
 import android.content.Context;
 import android.os.PowerManager;
+import android.util.Log;
 
 import com.curtismj.logoplus.MicroCodeManager;
 import com.curtismj.logoplus.persist.UIState;
@@ -13,6 +14,7 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EFFECT_PULSE = 2;
     public static final int EFFECT_RAINBOW = 3;
     public static final int EFFECT_PINWHEEL = 4;
+    public static final int EFFECT_ROLL = 5;
 
     public static final int STATE_SCREENON = 0;
     public static final int STATE_SCREENOFF = 1;
@@ -47,7 +49,7 @@ public class BaseLogoMachine extends StateMachine {
 
     public static  boolean ValidateEffectNo(int no)
     {
-        return (no >= 0) && (no <= 4);
+        return (no >= 0) && (no <= 5);
     }
 
     private void  runEffect() {
@@ -83,6 +85,9 @@ public class BaseLogoMachine extends StateMachine {
                 break;
             case EFFECT_PINWHEEL:
                 currentPassiveProgram = MicroCodeManager.rainbowProgramBuild(state.effectLength, true);
+                break;
+            case EFFECT_ROLL:
+                currentPassiveProgram = MicroCodeManager.rollProgramBuild();
                 break;
         }
     }

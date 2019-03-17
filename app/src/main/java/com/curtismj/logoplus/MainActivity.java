@@ -361,6 +361,7 @@ public class MainActivity extends AppCompatActivity
                     case R.id.pulsingRadio: pref = BaseLogoMachine.EFFECT_PULSE; break;
                     case R.id.rainbowRadio: pref = BaseLogoMachine.EFFECT_RAINBOW; break;
                     case R.id.pinWheelRadio: pref = BaseLogoMachine.EFFECT_PINWHEEL; break;
+                    case R.id.rollRadio: pref = BaseLogoMachine.EFFECT_ROLL; break;
                 }
                 state.passiveEffect = pref;
                 syncUIState();
@@ -372,6 +373,7 @@ public class MainActivity extends AppCompatActivity
             case BaseLogoMachine.EFFECT_PULSE: selectedButton = passiveGrp.findViewById(R.id.pulsingRadio); break;
             case BaseLogoMachine.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
             case BaseLogoMachine.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;
+            case BaseLogoMachine.EFFECT_ROLL: selectedButton = passiveGrp.findViewById(R.id.rollRadio); break;
         }
         selectedButton.setChecked(true);
         effectColor = findViewById(R.id.effectColorPick);

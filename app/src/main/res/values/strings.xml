@@ -44,4 +44,5 @@
     <string name="passiveLenAutoHint">Effect length (ms)</string>
     <string name="passiveUnlockHint">Integer (0 is false)</string>
     <string name="autoBrightHint">Integer (0-255)</string>
+    <string name="rolling">Rolling</string>
 </resources>

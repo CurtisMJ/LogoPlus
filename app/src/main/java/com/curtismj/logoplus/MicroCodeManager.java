@@ -1,127 +1,127 @@
 package com.curtismj.logoplus;
 
 public class MicroCodeManager {
-    public static class LP55xProgram
-    {
+    public static class LP55xProgram {
         public byte currAddr;
         public short[] program;
         public static final int LP5523_MEMORY = 96;
 
-        public LP55xProgram(int memory)
-        {
+        public LP55xProgram(int memory) {
             currAddr = 0;
             program = new short[memory];
         }
 
-        public byte dw(int bits)
-        {
-            program[currAddr] = (short)(bits & 0xFFFF);
-            return  currAddr++;
+        public byte dw(int bits) {
+            program[currAddr] = (short) (bits & 0xFFFF);
+            return currAddr++;
         }
 
-        public byte ramp(float msecs, byte dir, int steps)
-        {
-            float chan = (float)steps;
+        public byte ramp(float msecs, byte dir, int steps) {
+            float chan = (float) steps;
             float stepTime0 = Math.round((msecs / 0.488f) / chan);
-            float stepTime1 = Math.round( (msecs / 15.625f) / chan);
+            float stepTime1 = Math.round((msecs / 15.625f) / chan);
             float time0 = chan * stepTime0 * 0.488f;
             float time1 = chan * stepTime1 * 15.625f;
             boolean preScale = Math.abs(time0 - msecs) > Math.abs(time1 - msecs);
-            byte finalStepTime =  preScale ? (byte)stepTime1 : (byte)stepTime0;
-            if (finalStepTime > 31)
-            {
-                preScale  = !preScale;
-                finalStepTime =  preScale ? (byte)stepTime1 : (byte)stepTime0;
+            byte finalStepTime = preScale ? (byte) stepTime1 : (byte) stepTime0;
+            if (finalStepTime > 31) {
+                preScale = !preScale;
+                finalStepTime = preScale ? (byte) stepTime1 : (byte) stepTime0;
             }
             int inst = ((finalStepTime & 0x1F) << 9) | (steps & 0xff);
-            if (preScale)  inst |=  0x4000;
+            if (preScale) inst |= 0x4000;
             if (dir == 1) inst |= 0x100;
-            byte ret =  dw(inst);
-            if (dir == 3)
-            {
+            byte ret = dw(inst);
+            if (dir == 3) {
                 inst |= 0x100;
                 dw(inst);
             }
             return ret;
         }
 
-        public byte muxMapAddr(int addr)
-        {
+        public byte muxMapAddr(int addr) {
             return dw(0x9F80 | (addr & 0x7F));
         }
 
-        public byte muxMapStart(int addr)
-        {
+        public byte muxMapStart(int addr) {
             return dw(0x9C00 | (addr & 0x7F));
         }
 
-        public byte muxLdEnd(int addr)
-        {
+        public byte muxLdEnd(int addr) {
             return dw(0x9C80 | (addr & 0x7F));
         }
 
-        public byte muxMapNext()
-        {
+        public byte muxMapNext() {
             return dw(0x9D80);
         }
 
-        public byte setPwm(int val)
-        {
+        public byte setPwm(int val) {
             return dw(0x4000 | (val & 0xFF));
         }
 
-        public byte trigger(boolean wait, int e1, int e2, int e3)
-        {
+        public byte setPwmVar(int var) {
+            return dw(0x8460 | (var & 0x3));
+        }
+
+        public byte ld(int var, int val) {
+            return dw(0x9000 | ((var & 0x3) << 10) | (val & 0xFF));
+        }
+
+        public byte add(int var, int val) {
+            return dw(0x9100 | ((var & 0x3) << 10) | (val & 0xFF));
+        }
+
+        public byte sub(int var, int val) {
+            return dw(0x9200 | ((var & 0x3) << 10) | (val & 0xFF));
+        }
+
+        public byte je(int skip, int var1, int var2) {
+            return dw(0x8E00 | ((skip & 0x1F) << 4) | ((var1 & 0x3) << 2) | (var2 & 0x3));
+        }
+
+        public byte trigger(boolean wait, int e1, int e2, int e3) {
             return dw(0xE000 | (((e1 | (e2 << 1) | (e3 << 2)) & 0x3F) << (wait ? 7 : 1)));
         }
 
-        public byte wait(float msecs, int repeat)
-        {
+        public byte wait(float msecs, int repeat) {
             float steps0 = Math.round(msecs / 0.488f);
             float steps1 = Math.round(msecs / 15.625f);
             float time0 = steps0 * 0.488f;
             float time1 = steps1 * 15.625f;
             boolean preScale = Math.abs(time0 - msecs) > Math.abs(time1 - msecs);
-            byte finalStepTime =  preScale ? (byte)steps1 : (byte)steps0;
-            if (finalStepTime > 31)
-            {
-                preScale  = !preScale;
-                finalStepTime =  preScale ? (byte)steps1 : (byte)steps0;
+            byte finalStepTime = preScale ? (byte) steps1 : (byte) steps0;
+            if (finalStepTime > 31) {
+                preScale = !preScale;
+                finalStepTime = preScale ? (byte) steps1 : (byte) steps0;
             }
             int inst = (finalStepTime & 0x1F) << 9;
-            if (preScale)  inst |=  0x4000;
+            if (preScale) inst |= 0x4000;
             byte addr = dw(inst);
             repeat--;
-            for (int i = 0; i < repeat; i++)
-            {
+            for (int i = 0; i < repeat; i++) {
                 dw(inst);
             }
             return addr;
         }
 
-        public byte branch(int loops, int addr)
-        {
+        public byte branch(int loops, int addr) {
             return dw(0xA000 | ((loops & 0x3F) << 7) | (addr & 0x7F));
         }
 
-        public byte end()
-        {
+        public byte end() {
             return dw(0xC000);
         }
 
-        public  String dump()
-        {
+        public String dump() {
             StringBuilder build = new StringBuilder(program.length * 4);
-            for (int i = 0; i < program.length; i++)
-            {
+            for (int i = 0; i < program.length; i++) {
                 build.append(String.format("%04X", program[i]));
             }
             return build.toString();
         }
     }
 
-    public static  String[] staticProgramBuild(int color)
-    {
+    public static String[] staticProgramBuild(int color) {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
         byte eng1 = prog.dw(0x1C0);
         byte eng2 = prog.dw(0x15);
@@ -130,7 +130,7 @@ public class MicroCodeManager {
         int channel;
         byte prog1 = prog.muxMapAddr(eng1);
         prog.setPwm(0);
-        channel = (color>> 16) & 0xFF;
+        channel = (color >> 16) & 0xFF;
         prog.ramp(1000f, (byte) 0, channel);
         prog.end();
 
@@ -154,8 +154,7 @@ public class MicroCodeManager {
         };
     }
 
-    public static  String[] pulseProgramBuild(float msecs, int color)
-    {
+    public static String[] pulseProgramBuild(float msecs, int color) {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
         byte eng1 = prog.dw(0x1C0);
         byte eng2 = prog.dw(0x15);
@@ -164,7 +163,7 @@ public class MicroCodeManager {
         int channel;
         byte prog1 = prog.muxMapAddr(eng1);
         prog.setPwm(0);
-        channel = (color>> 16) & 0xFF;
+        channel = (color >> 16) & 0xFF;
         prog.trigger(false, 0, 1, 1);
         prog.ramp(msecs, (byte) 0, channel);
         prog.trigger(true, 0, 1, 1);
@@ -203,21 +202,17 @@ public class MicroCodeManager {
         };
     }
 
-    public static String[] rainbowProgramBuild(float msecs, boolean pinwheel)
-    {
+    public static String[] rainbowProgramBuild(float msecs, boolean pinwheel) {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
         byte eng1;
         byte eng2;
         byte eng3;
 
-        if (!pinwheel)
-        {
+        if (!pinwheel) {
             eng1 = prog.dw(0x1C0);
             eng2 = prog.dw(0x15);
             eng3 = prog.dw(0x2A);
-        }
-        else
-        {
+        } else {
             eng1 = prog.dw(0x58);
             eng2 = prog.dw(0xA1);
             eng3 = prog.dw(0x106);
@@ -266,8 +261,8 @@ public class MicroCodeManager {
 
             prog.trigger(false, 0, 1, 1);
 
-            if (i != 0) prog.ramp(200f, (byte)1, 255 );
-            prog.ramp(600f, (byte)0, channel );
+            if (i != 0) prog.ramp(200f, (byte) 1, 255);
+            prog.ramp(600f, (byte) 0, channel);
 
             prog.trigger(true, 0, 1, 1);
         }
@@ -284,8 +279,8 @@ public class MicroCodeManager {
 
             prog.trigger(true, 1, 0, 0);
 
-            if (i != 0) prog.ramp(200f, (byte)1, 255 );
-            prog.ramp(600f, (byte)0, channel );
+            if (i != 0) prog.ramp(200f, (byte) 1, 255);
+            prog.ramp(600f, (byte) 0, channel);
 
             prog.trigger(false, 1, 0, 0);
         }
@@ -301,8 +296,8 @@ public class MicroCodeManager {
 
             prog.trigger(true, 1, 0, 0);
 
-            if (i != 0) prog.ramp(200f, (byte)1, 255 );
-            prog.ramp(600f, (byte)0, channel );
+            if (i != 0) prog.ramp(200f, (byte) 1, 255);
+            prog.ramp(600f, (byte) 0, channel);
 
             prog.trigger(false, 1, 0, 0);
         }
@@ -318,8 +313,7 @@ public class MicroCodeManager {
         };
     }
 
-    public static  String[] ringProgramBuild(int color)
-    {
+    public static String[] ringProgramBuild(int color) {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
 
         /*
@@ -371,13 +365,13 @@ public class MicroCodeManager {
         prog.muxLdEnd(eng1_pad3);
         prog.trigger(false, 0, 1, 1);
 
-        byte upRamp1 = prog.ramp(100f, (byte)0,  g);
+        byte upRamp1 = prog.ramp(100f, (byte) 0, g);
         prog.muxMapNext();
         prog.branch(3, upRamp1 - prog1);
         prog.trigger(true, 0, 1, 1);
         prog.trigger(false, 0, 1, 1);
         prog.muxMapNext();
-        byte dwnRamp1 = prog.ramp(100f, (byte)1,  255);
+        byte dwnRamp1 = prog.ramp(100f, (byte) 1, 255);
         prog.muxMapNext();
         prog.branch(3, dwnRamp1 - prog1);
         prog.branch(0, upRamp1 - prog1);
@@ -387,13 +381,13 @@ public class MicroCodeManager {
         prog.muxLdEnd(eng2_pad3);
         prog.trigger(true, 1, 0, 0);
 
-        byte upRamp2 = prog.ramp(100f, (byte)0,  b);
+        byte upRamp2 = prog.ramp(100f, (byte) 0, b);
         prog.muxMapNext();
         prog.branch(3, upRamp2 - prog2);
         prog.trigger(false, 1, 0, 0);
         prog.trigger(true, 1, 0, 0);
         prog.muxMapNext();
-        byte dwnRamp2 = prog.ramp(100f, (byte)1,  255);
+        byte dwnRamp2 = prog.ramp(100f, (byte) 1, 255);
         prog.muxMapNext();
         prog.branch(3, dwnRamp2 - prog2);
         prog.branch(0, upRamp2 - prog2);
@@ -403,13 +397,13 @@ public class MicroCodeManager {
         prog.muxLdEnd(eng3_pad3);
         prog.trigger(true, 1, 0, 0);
 
-        byte upRamp3 = prog.ramp(100f, (byte)0,  r);
+        byte upRamp3 = prog.ramp(100f, (byte) 0, r);
         prog.muxMapNext();
         prog.branch(3, upRamp3 - prog3);
         prog.trigger(false, 1, 0, 0);
         prog.trigger(true, 1, 0, 0);
         prog.muxMapNext();
-        byte dwnRamp3 = prog.ramp(100f, (byte)1,  255);
+        byte dwnRamp3 = prog.ramp(100f, (byte) 1, 255);
         prog.muxMapNext();
         prog.branch(3, dwnRamp3 - prog3);
         prog.branch(0, upRamp3 - prog3);
@@ -421,4 +415,110 @@ public class MicroCodeManager {
                 prog.dump()
         };
     }
+
+    public static String[] rollProgramBuild() {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+
+        byte rpad1 = prog.dw(0x40);
+        byte rpad2and3 = prog.dw(0x180);
+        byte gpad1 = prog.dw(0x1);
+        byte gpad2and3 = prog.dw(0x14);
+        byte bpad1 = prog.dw(0x2);
+        byte bpad2and3 = prog.dw(0x28);
+
+        byte prog1 = prog.ld(2, 255);
+        prog.muxMapAddr(gpad1);
+        prog.setPwm(0);
+        prog.muxMapAddr(bpad1);
+        prog.setPwm(0);
+        prog.muxMapAddr(rpad1);
+        prog.setPwm(0);
+        prog.ramp(1200f, (byte) 0, 255);
+
+        byte p1reset = prog.ld(0, 255);
+        prog.ld(1, 0);
+
+        byte p1loop1 = prog.muxMapAddr(rpad1);
+        prog.setPwmVar(0);
+        prog.muxMapAddr(gpad1);
+        prog.setPwmVar(1);
+        prog.sub(0, 1);
+        prog.add(1, 1);
+        prog.je(1, 1, 2);
+        prog.branch(0, p1loop1 - prog1);
+
+        byte p1loop2 = prog.muxMapAddr(gpad1);
+        prog.setPwmVar(1);
+        prog.muxMapAddr(bpad1);
+        prog.setPwmVar(0);
+        prog.sub(1, 1);
+        prog.add(0, 1);
+        prog.je(1, 0, 2);
+        prog.branch(0, p1loop2 - prog1);
+
+        byte p1loop3 = prog.muxMapAddr(bpad1);
+        prog.setPwmVar(0);
+        prog.muxMapAddr(rpad1);
+        prog.setPwmVar(1);
+        prog.sub(0, 1);
+        prog.add(1, 1);
+        prog.je(1, 1, 2);
+        prog.branch(0, p1loop3 - prog1);
+        prog.branch(0, p1reset - prog1);
+
+
+
+        byte prog2 = prog.muxMapAddr(gpad2and3);
+        prog.setPwm(0);
+        prog.muxMapAddr(bpad2and3);
+        prog.setPwm(0);
+        prog.muxMapAddr(rpad2and3);
+        prog.setPwm(0);
+        prog.ramp(1200f, (byte) 0, 255);
+        prog.wait(400f, 2);
+
+        byte p2reset = prog.ld(0, 255);
+        prog.ld(1, 0);
+
+        byte p2loop1 = prog.muxMapAddr(rpad2and3);
+        prog.setPwmVar(0);
+        prog.muxMapAddr(gpad2and3);
+        prog.setPwmVar(1);
+        prog.sub(0, 1);
+        prog.add(1, 1);
+        prog.je(1, 1, 2);
+        prog.branch(0,  p2loop1 - prog2);
+
+        byte p2loop2 = prog.muxMapAddr(gpad2and3);
+        prog.setPwmVar(1);
+        prog.muxMapAddr(bpad2and3);
+        prog.setPwmVar(0);
+        prog.sub(1, 1);
+        prog.add(0, 1);
+        prog.je(1, 0, 2);
+        prog.branch(0,  p2loop2 - prog2);
+
+        byte p2loop3 = prog.muxMapAddr(bpad2and3);
+        prog.setPwmVar(0);
+        prog.muxMapAddr(rpad2and3);
+        prog.setPwmVar(1);
+        prog.sub(0, 1);
+        prog.add(1, 1);
+        prog.je(1, 1, 2);
+        prog.branch(0,  p2loop3 - prog2);
+        prog.branch(0,  p2reset - prog2);
+
+
+
+        byte prog3 = prog.end();
+
+
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
+    }
+
 }
