@@ -7,8 +7,8 @@ android {
         applicationId "com.curtismj.logoplus"
         minSdkVersion 27
         targetSdkVersion 28
-        versionCode 7
-        versionName "1.0.6"
+        versionCode 8
+        versionName "1.0.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         resConfigs "en"
     }
@@ -51,7 +51,7 @@ dependencies {
     def room_version = "2.1.0-alpha05"
 
     implementation "androidx.room:room-runtime:$room_version"
-    annotationProcessor "androidx.room:room-compiler:2.1.0-alpha04" // use kapt for Kotlin
+    annotationProcessor "androidx.room:room-compiler:$room_version" // use kapt for Kotlin
 
     implementation "androidx.room:room-rxjava2:$room_version"
 }
