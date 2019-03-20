@@ -1,3 +1,5 @@
+![LogoPlus Logo](https://github.com/CurtisMJ/LogoPlus/blob/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png)
+
 # LogoPlus
 Open Source Implementation of Lighting Effects for Razer Phone 2
 
