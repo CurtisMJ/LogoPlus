@@ -47,21 +47,20 @@ public class RootLogoMachine extends BaseLogoMachine {
     {
         handlerLock.acquire(10000);
         rootSession.waitForIdle();
-        rootSession.addCommand(new String[]{
-                fadeoutBin
-        });
-        rootSession.waitForIdle();
         if (state.brightness > 0) {
             rootSession.addCommand(new String[]{
                     "echo \"" + program[3] + "\" > /sys/class/leds/lp5523:channel0/device/memory",
                     "echo \"" + program[0] + "\" > /sys/class/leds/lp5523:channel0/device/prog_1_start",
                     "echo \"" + program[1] + "\" > /sys/class/leds/lp5523:channel0/device/prog_2_start",
                     "echo \"" + program[2] + "\" > /sys/class/leds/lp5523:channel0/device/prog_3_start",
-                    "echo \"1\" > /sys/class/leds/lp5523:channel0/device/run_engine",
-                    "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
+                    "echo \"1\" > /sys/class/leds/lp5523:channel0/device/run_engine"
             });
             rootSession.waitForIdle();
         }
+        rootSession.addCommand(new String[]{
+                "echo \"" + state.brightness + "\" > /sys/class/leds/lp5523:channel0/device/master_fader1"
+        });
+        rootSession.waitForIdle();
         handlerLock.release();
     }
 
@@ -119,8 +118,7 @@ public class RootLogoMachine extends BaseLogoMachine {
             rootSession.addCommand(new String[]{
                     "chmod +x " + fadeoutBin,
                     "echo 111111111 > /sys/class/leds/lp5523:channel0/device/master_fader_leds",
-                    "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1",
-                    fadeoutBin
+                    "echo 0 > /sys/class/leds/lp5523:channel0/device/master_fader1"
             });
             rootSession.waitForIdle();
             handlerLock.release();

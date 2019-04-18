@@ -455,6 +455,16 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        Switch battSwitch = findViewById(R.id.batteryAnimationSwitch);
+        battSwitch.setChecked(state.batteryAnimation);
+        battSwitch.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                state.batteryAnimation = isChecked;
+                syncUIState();
+            }
+        });
+
         ImageView info = findViewById(R.id.powerSaveInfo);
         info.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -468,6 +478,14 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onClick(View v) {
                 CommonUtils.genericDialog(MainActivity.this, R.string.pocketMode, R.string.pocketModeDesc);
+            }
+        });
+
+        info = findViewById(R.id.batteryAnimationInfo);
+        info.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                CommonUtils.genericDialog(MainActivity.this, R.string.batteryAnimationInfo, R.string.batteryAnimationDesc);
             }
         });
 

@@ -34,7 +34,7 @@
     <string name="phonePermDesc">To use the ringer animation effect, Logo+ needs the following permissions:\n\nRead phone status and identity:\nAllows the app to detect when the phone is ringing\n\nRead call log:\nAllows the app to determine which number called so we can apply a specific color per number\n\nIf you press OK, the above permissions will be requested. If you press Cancel or deny the permissions the functionality will not be enabled</string>
     <string name="pocketMode">Pocket Mode</string>
     <string name="powerSaveDesc">When this option is toggled on, the passive effect will only run while the phone is unlocked. Notification effects will still run while locked. This can potentially save battery life.</string>
-    <string name="pocketModeDesc">When this option is toggled on, the passive effect will be turned off if, to a certain degree of certainty, it is determined that the device is currently in a pocket or bag. Once the lights are turned off, the phone must be unlocked before they will re-activate. Notification effects are disabled along with the passive effect. This can potentially save battery life.</string>
+    <string name="pocketModeDesc">When this option is toggled on, the passive effect will be turned off if, to a degree of certainty, it is determined that the device is currently in a pocket or bag.\nThe criteria by which this is determined:\n\t- If the proximity sensor is covered\n\t- If the ambient light is low\n\t- If the phone is tilted so that one of its edges is facing downwards(in case the phone is placed face down on a surface, such as a table)\nAdditionally, these conditions are only checked 5 seconds after the screen turns off\n\nOnce the lights are turned off, the phone must be unlocked before they will re-activate. Notification effects are disabled along with the passive effect. This can potentially save battery life.</string>
     <string name="title_activity_action">Logo+ Automation Action</string>
     <string name="autoInstPrompt">Please select a value to change...</string>
     <string name="instsLbl">Automation Instructions to Execute (Tasker variables supported in all fields):</string>
@@ -45,4 +45,6 @@
     <string name="passiveUnlockHint">Integer (0 is false)</string>
     <string name="autoBrightHint">Integer (0-255)</string>
     <string name="rolling">Rolling</string>
+    <string name="batteryAnimationInfo">Battery Animation</string>
+    <string name="batteryAnimationDesc">When this option is toggled on, the passive effect will be replaced by a charging animation when the device is plugged in. The animation will change color depending on the current battery level and charging speed.</string>
 </resources>

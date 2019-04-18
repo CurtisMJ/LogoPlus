@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {AppNotification.class,UIState.class, RingColor.class}, version = 4, exportSchema = false)
+@Database(entities = {AppNotification.class,UIState.class, RingColor.class}, version = 5, exportSchema = false)
 public abstract class LogoDatabase extends RoomDatabase {
     private  static LogoDatabase INSTANCE;
 
@@ -38,6 +38,13 @@ public abstract class LogoDatabase extends RoomDatabase {
         }
     };
 
+    private static final Migration MIGRATION_4_5 = new Migration(4, 5) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE UIState  ADD COLUMN batteryAnimation INTEGER NOT NULL DEFAULT 0");
+        }
+    };
+
     public static LogoDatabase getInstance(final Context context) {
         synchronized (sLock) {
             if (INSTANCE == null) {
@@ -46,6 +53,7 @@ public abstract class LogoDatabase extends RoomDatabase {
                         .addMigrations(MIGRATION_1_2)
                         .addMigrations(MIGRATION_2_3)
                         .addMigrations(MIGRATION_3_4)
+                        .addMigrations(MIGRATION_4_5)
                         .build();
             }
             return INSTANCE;

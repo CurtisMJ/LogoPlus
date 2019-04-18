@@ -9,6 +9,11 @@ import com.curtismj.logoplus.persist.UIState;
 
 public class BaseLogoMachine extends StateMachine {
 
+    private interface ProgramBuilder
+    {
+        String[] build();
+    }
+
     public static final int EFFECT_NONE = 0;
     public static final int EFFECT_STATIC= 1;
     public static final int EFFECT_PULSE = 2;
@@ -23,6 +28,7 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_RINGING= 5;
     public static final int STATE_RESTORE_JUNCTION= 6;
     public static final int STATE_POCKET_JUNCTION= 7;
+    public static final int STATE_CHARGE_UPDATE = 8;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
@@ -31,16 +37,20 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EVENT_RING = 6;
     public static final int EVENT_STOP_RING = 7;
     public static final int EVENT_POCKET_MODE = 8;
+    public static final int EVENT_CHARGE_UPDATE =  9;
 
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
     public static final int LED_BLANK=  2;
-    public static final int LED_RING =  4;
+    public static final int LED_RING =  3;
+    public static final int LED_INVALIDATED =  4;
+    public static final int LED_STALE =  5;
 
     protected int LEDState;
     protected UIState state;
     protected  int[] latestNotifs = new int[0];
     protected  int ringColor;
+    protected  int chargeLevel = -1;
     protected boolean inPocket = false;
     protected String[] currentPassiveProgram;
 
@@ -52,16 +62,28 @@ public class BaseLogoMachine extends StateMachine {
         return (no >= 0) && (no <= 5);
     }
 
-    private void  runEffect() {
-        if (currentPassiveProgram != null)
-            runProgram(currentPassiveProgram);
-        else
-            blankLights();
+    private void stateSwitch(int targetState, ProgramBuilder builder)
+    {
+        if (LEDState != targetState) {
+            if (LEDState != LED_STALE) _blankLights();
+            LEDState = targetState;
+            String[] newProgram = builder.build();
+            if (newProgram != null)
+                runProgram(newProgram);
+        }
     }
 
     protected void blankLights() {
         // base does nothing
     }
+
+    private void _blankLights() {
+        if (LEDState != LED_BLANK) {
+            LEDState = LED_BLANK;
+            blankLights();
+        }
+    }
+
 
     protected void runProgram(String[] program) {
         // base does nothing
@@ -99,44 +121,76 @@ public class BaseLogoMachine extends StateMachine {
         context = _context;
         pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 
-        // These states can be interrupted by global state update events
-        final int[] updatableStates = new int[]{
+        // These states can settled in by the SM, and therefore can be interrupted by global state update events
+        final int[] idleFanIn = new int[]{
           STATE_SCREENON,
           STATE_SCREENOFF,
           STATE_RINGING};
 
-        final int[][] updatableFanOut = new int[][] {
+        final int[][] idleFanOut = new int[][] {
           {EVENT_SCREENON,STATE_SCREENON},
           {EVENT_SCREENOFF,STATE_SCREENOFF},
           {EVENT_RING,STATE_RINGING}
         };
 
+        final ProgramBuilder currentPassiveBuilder = new ProgramBuilder() {
+            @Override
+            public String[] build() {
+                return (chargeLevel > -1 ? MicroCodeManager.batteryProgramBuild(chargeLevel) : currentPassiveProgram);
+            }
+        };
+
+        final ProgramBuilder notifsBuilder = new ProgramBuilder() {
+            @Override
+            public String[] build() {
+                return MicroCodeManager.notifyProgramBuild(latestNotifs);
+            }
+        };
+
+        final ProgramBuilder ringBuilder = new ProgramBuilder() {
+            @Override
+            public String[] build() {
+                return MicroCodeManager.ringProgramBuild(ringColor);
+            }
+        };
+
         this
                 // Mid state notif updates (usually silent)
-                .FanIn(updatableStates, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
-
+                .FanIn(idleFanIn, EVENT_NOTIF_UPDATE, STATE_NOTIF_UPDATE)
                 // Notif update back to state
-                .FanOut(STATE_NOTIF_UPDATE, updatableFanOut)
-
-                // Mid state global settings updates (usually NOT silent)
-                .FanIn(updatableStates, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
-
-                // Global settings back to state
-                .FanOut(STATE_STATE_UPDATE, updatableFanOut)
-
+                .FanOut(STATE_NOTIF_UPDATE, idleFanOut)
                 .Enter(STATE_NOTIF_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         latestNotifs = (int[])arg;
-                        sm.ReverseFanIn(updatableFanOut, otherState);
+                        if (LEDState == LED_NOTIF) LEDState = LED_INVALIDATED;
+                        sm.ReverseFanIn(idleFanOut, otherState);
                     }
                 })
 
+                // Mid state global settings updates (usually NOT silent)
+                .FanIn(idleFanIn, EVENT_STATE_UPDATE, STATE_STATE_UPDATE)
+                // Global settings back to state
+                .FanOut(STATE_STATE_UPDATE, idleFanOut)
                 .Enter(STATE_STATE_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         updateState((UIState) arg);
-                        sm.ReverseFanIn(updatableFanOut, otherState);
+                        LEDState = LED_STALE;
+                        sm.ReverseFanIn(idleFanOut, otherState);
+                    }
+                })
+
+                // Mid state charge level updates (selectively silent)
+                .FanIn(idleFanIn, EVENT_CHARGE_UPDATE, STATE_CHARGE_UPDATE)
+                // Charge level update back to state
+                .FanOut(STATE_CHARGE_UPDATE, idleFanOut)
+                .Enter(STATE_CHARGE_UPDATE, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        chargeLevel = (Integer)arg;
+                        if (LEDState == LED_PASSIVE) LEDState = LED_STALE;
+                        sm.ReverseFanIn(idleFanOut, otherState);
                     }
                 })
 
@@ -146,60 +200,26 @@ public class BaseLogoMachine extends StateMachine {
                 .Enter(STATE_SCREENON, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        if (LEDState != LED_PASSIVE) {
-                            LEDState = LED_PASSIVE;
-                            runEffect();
-                        }
+                        stateSwitch(LED_PASSIVE, currentPassiveBuilder);
                         inPocket = false;
-                    }
-                })
-                .Exit(STATE_SCREENON, new StateMachine.Callback() {
-                    @Override
-                    public void run(StateMachine sm, int otherState, Object arg) {
-                        if (!state.powerSave && otherState == STATE_SCREENOFF) return;
-                        if (otherState == EVENT_NOTIF_UPDATE) return;
-                        if (LEDState != LED_BLANK) {
-                            LEDState = LED_BLANK;
-                            blankLights();
-                        }
                     }
                 })
 
                 .Enter(STATE_SCREENOFF, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        if (inPocket)
-                        {
-                            if (LEDState != LED_BLANK) {
-                                LEDState = LED_BLANK;
-                                blankLights();
-                            }
-                            return;
-                        }
+                        if (inPocket) return;
 
-                        if (latestNotifs.length > 0 ) {
-                            if (LEDState != LED_NOTIF) {
-                                LEDState = LED_NOTIF;
-                                runProgram(MicroCodeManager.notifyProgramBuild(latestNotifs));
-                            }
-                        }
-                        else if (!state.powerSave)
+                        if (latestNotifs.length > 0 )
                         {
-                            if (LEDState != LED_PASSIVE) {
-                                LEDState = LED_PASSIVE;
-                                runEffect();
-                            }
+                            stateSwitch(LED_NOTIF, notifsBuilder);
                         }
-                    }
-                })
-                .Exit(STATE_SCREENOFF, new StateMachine.Callback() {
-                    @Override
-                    public void run(StateMachine sm, int otherState, Object arg) {
-                        if (!state.powerSave && otherState == STATE_SCREENON) return;
-                        if (LEDState != LED_BLANK) {
-                            LEDState = LED_BLANK;
-                            blankLights();
+                        else if (!state.powerSave || chargeLevel > -1)
+                        {
+                            stateSwitch(LED_PASSIVE, currentPassiveBuilder);
                         }
+                        else
+                            _blankLights();
                     }
                 })
 
@@ -210,6 +230,7 @@ public class BaseLogoMachine extends StateMachine {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         inPocket = true;
+                        _blankLights();
                         sm.Event(STATE_SCREENOFF);
                     }
                 })
@@ -221,29 +242,14 @@ public class BaseLogoMachine extends StateMachine {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         if (arg != null)
-                        {
                             ringColor = (Integer)arg;
-                        }
-                        if (LEDState != LED_RING)
-                        {
-                            LEDState = LED_RING;
-                            runProgram(MicroCodeManager.ringProgramBuild(ringColor));
-                        }
-                    }
-                })
-                .Exit(STATE_RINGING, new StateMachine.Callback() {
-                    @Override
-                    public void run(StateMachine sm, int otherState, Object arg) {
-                        if (otherState == EVENT_NOTIF_UPDATE) return;
-                        if (LEDState != LED_BLANK) {
-                            LEDState = LED_BLANK;
-                            blankLights();
-                        }
+                        stateSwitch(LED_RING, ringBuilder);
                     }
                 })
 
-                .Transition(STATE_RESTORE_JUNCTION, EVENT_SCREENON, STATE_SCREENON)
-                .Transition(STATE_RESTORE_JUNCTION, EVENT_SCREENOFF, STATE_SCREENOFF)
+                .FanOut(STATE_RESTORE_JUNCTION,new int[][] {
+                        {EVENT_SCREENON,STATE_SCREENON},
+                        {EVENT_SCREENOFF,STATE_SCREENOFF}})
                 .Enter(STATE_RESTORE_JUNCTION, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {

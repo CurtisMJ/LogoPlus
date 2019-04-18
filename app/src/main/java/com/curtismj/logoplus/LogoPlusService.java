@@ -450,6 +450,7 @@ public class LogoPlusService extends Service {
                     }
 
                     break;
+
             }
         }
     }
@@ -520,6 +521,7 @@ public class LogoPlusService extends Service {
                         mServiceHandler.sendMessage(msg);
                     }
                     break;
+
             }
         }
     }

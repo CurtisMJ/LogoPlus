@@ -241,6 +241,26 @@
                 app:layout_constraintTop_toTopOf="@id/pocketModeSwitch"
                 app:srcCompat="@android:drawable/ic_dialog_info" />
 
+            <Switch
+                android:id="@+id/batteryAnimationSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="32dp"
+                android:layout_marginTop="16dp"
+                android:switchPadding="16dp"
+                android:text="@string/batteryAnimationInfo"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/pocketModeInfo" />
+
+            <ImageView
+                android:id="@+id/batteryAnimationInfo"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:layout_constraintBottom_toBottomOf="@id/batteryAnimationSwitch"
+                app:layout_constraintLeft_toLeftOf="@id/powerSaveInfo"
+                app:layout_constraintTop_toTopOf="@id/batteryAnimationSwitch"
+                app:srcCompat="@android:drawable/ic_dialog_info" />
+
             <Button
                 android:id="@+id/applyBtn"
                 android:layout_width="wrap_content"
@@ -249,7 +269,7 @@
                 android:layout_marginTop="16dp"
                 android:text="@string/apply"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/pocketModeSwitch" />
+                app:layout_constraintTop_toBottomOf="@id/batteryAnimationInfo" />
 
 
         </androidx.constraintlayout.widget.ConstraintLayout>

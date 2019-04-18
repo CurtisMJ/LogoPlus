@@ -521,4 +521,46 @@ public class MicroCodeManager {
         };
     }
 
+    public static String[] batteryProgramBuild(float chargeLevel) {
+        LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
+
+        byte red = prog.dw(0x1C0);
+        byte green = prog.dw(0x15);
+        byte blue = prog.dw(0x2A);
+
+        // Blue
+        byte bpad1 = prog.dw(0x2);
+        byte bpad2 = prog.dw(0x20);
+        byte bpad3 = prog.dw(0x8);
+
+        int r = chargeLevel < 50f ? 255 : (int)((1f - ((chargeLevel - 50f) / 50f)) * 255f);
+        int g = chargeLevel < 50f ? (int)((chargeLevel/ 50f) * 255f) : 255;
+
+        byte prog1 = prog.muxMapAddr(red);
+        prog.setPwm(r);
+        prog.muxMapAddr(green);
+        prog.setPwm(g);
+        prog.muxMapAddr(blue);
+        prog.setPwm(0);
+        prog.muxMapStart(bpad1);
+        prog.muxLdEnd(bpad3);
+
+        byte upRamp1 = prog.ramp(100f, (byte) 0, 255);
+        prog.ramp(1000f, (byte) 1, 255);
+        prog.muxMapNext();
+        prog.branch(0, upRamp1 - prog1);
+
+
+        byte prog2 = prog.end();
+
+        byte prog3 = prog.end();
+
+        return new String[]{
+                String.format("%02X", prog1),
+                String.format("%02X", prog2),
+                String.format("%02X", prog3),
+                prog.dump()
+        };
+    }
+
 }
