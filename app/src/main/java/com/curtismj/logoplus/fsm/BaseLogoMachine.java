@@ -112,6 +112,8 @@ public class BaseLogoMachine extends StateMachine {
                 currentPassiveProgram = MicroCodeManager.rollProgramBuild();
                 break;
         }
+
+        if (!state.batteryAnimation) chargeLevel = -1;
     }
 
     public BaseLogoMachine(Context _context, final UIState initial) {

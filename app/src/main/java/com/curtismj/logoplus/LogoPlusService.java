@@ -10,6 +10,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -48,6 +49,8 @@ public class LogoPlusService extends Service {
     public static final int SCREENON2 = 10;
     public static final int REGISTER_LIGHT_SENSOR = 11;
     public static final int AUTOMATION = 12;
+    public static final int CHARGE_UPDATE = 13;
+    public static final int CHARGE_STOP = 14;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
@@ -57,7 +60,7 @@ public class LogoPlusService extends Service {
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
     private Messenger mMessenger;
-    private  BroadcastReceiver offReceiver;
+    private  BroadcastReceiver offReceiver, levReceiver;
     private LogoDatabase db;
     private LogoDao dao;
     private UIState state;
@@ -80,6 +83,8 @@ public class LogoPlusService extends Service {
     private boolean pocketModeWakelockHeld = false;
     private boolean pocketModeEnabled = false;
     private  int sensorBounces = 0;
+    private boolean chargeAnimationEnabled = false;
+    private boolean ignoreBatteryUpdates = true;
 
     private PowerManager pm;
     private PowerManager.WakeLock pocketModeWakelock;
@@ -144,10 +149,17 @@ public class LogoPlusService extends Service {
             Log.d("debug", "Subscribing to phone state");
             intentFilter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
         }
+        if (state.batteryAnimation)
+        {
+            Log.d("debug", "Subscribing to power state");
+            intentFilter.addAction(Intent.ACTION_POWER_CONNECTED);
+            intentFilter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        }
         offReceiver = new LogoBroadcastReceiver();
         registerReceiver(offReceiver, intentFilter);
         phoneStateListening = state.ringAnimation;
         pocketModeEnabled = state.pocketMode;
+        chargeAnimationEnabled = state.batteryAnimation;
     }
 
     private void cacheRebuild()
@@ -451,6 +463,20 @@ public class LogoPlusService extends Service {
 
                     break;
 
+                case CHARGE_UPDATE:
+                    if (state.batteryAnimation && !ignoreBatteryUpdates)
+                    {
+                        Bundle data = msg.getData();
+                        int batteryLevel = data.getInt(BatteryManager.EXTRA_LEVEL, 0);
+                        int maxLevel = data.getInt(BatteryManager.EXTRA_SCALE, 0);
+                        int batteryPercentage = (int)(((float) batteryLevel / (float) maxLevel) * 100f);
+                        fsm.Event(BaseLogoMachine.EVENT_CHARGE_UPDATE, batteryPercentage);
+                    }
+                    break;
+
+                case CHARGE_STOP:
+                    fsm.Event(BaseLogoMachine.EVENT_CHARGE_UPDATE, -1);
+                    break;
             }
         }
     }
@@ -460,7 +486,7 @@ public class LogoPlusService extends Service {
 
         cacheRebuild();
 
-        if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled) {
+        if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled || state.batteryAnimation != chargeAnimationEnabled) {
             buildReceiver();
         }
 
@@ -469,6 +495,16 @@ public class LogoPlusService extends Service {
             mServiceHandler.removeMessages(FINAL_POCKET_CHECK);
             mServiceHandler.removeMessages(REGISTER_LIGHT_SENSOR);
             finishPocketMode();
+        }
+
+        if (!state.batteryAnimation)
+        {
+            if (levReceiver != null)
+            {
+                unregisterReceiver(levReceiver);
+                levReceiver = null;
+            }
+            ignoreBatteryUpdates = true;
         }
 
         fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
@@ -521,7 +557,40 @@ public class LogoPlusService extends Service {
                         mServiceHandler.sendMessage(msg);
                     }
                     break;
+                case Intent.ACTION_POWER_CONNECTED:
+                    ignoreBatteryUpdates = false;
+                    if (levReceiver == null)
+                    {
+                        levReceiver = new LevelReciever();
+                        IntentFilter intentFilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                        registerReceiver(levReceiver, intentFilter);
+                    }
+                    break;
+                case Intent.ACTION_POWER_DISCONNECTED:
+                    if (levReceiver != null)
+                    {
+                        unregisterReceiver(levReceiver);
+                        levReceiver = null;
+                    }
+                    ignoreBatteryUpdates = true;
+                    msg = mServiceHandler.obtainMessage(CHARGE_STOP);
+                    mServiceHandler.sendMessage(msg);
+                    break;
+            }
+        }
+    }
 
+    private final class LevelReciever extends   BroadcastReceiver {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Message msg;
+            switch (intent.getAction()) {
+                case Intent.ACTION_BATTERY_CHANGED:
+                    msg = mServiceHandler.obtainMessage(CHARGE_UPDATE);
+                    msg.setData(intent.getExtras());
+                    mServiceHandler.sendMessage(msg);
+                    break;
             }
         }
     }
