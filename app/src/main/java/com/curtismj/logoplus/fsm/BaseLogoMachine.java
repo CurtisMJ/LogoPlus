@@ -65,9 +65,9 @@ public class BaseLogoMachine extends StateMachine {
     private void stateSwitch(int targetState, ProgramBuilder builder)
     {
         if (LEDState != targetState) {
-            if (LEDState != LED_STALE) _blankLights();
-            LEDState = targetState;
             String[] newProgram = builder.build();
+            if (LEDState != LED_STALE || newProgram == null) _blankLights();
+            LEDState = targetState;
             if (newProgram != null)
                 runProgram(newProgram);
         }
