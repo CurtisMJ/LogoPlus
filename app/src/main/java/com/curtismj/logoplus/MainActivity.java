@@ -38,6 +38,7 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Message;
+import android.os.PowerManager;
 import android.os.Process;
 import android.provider.ContactsContract;
 import android.text.Editable;
@@ -250,6 +251,7 @@ public class MainActivity extends AppCompatActivity
         });
 
         if (state.serviceEnabled) startService(serviceStartIntent);
+
 
         appList = findViewById(R.id.appList);
         appList.setOnItemClickListener(new AdapterView.OnItemClickListener() {

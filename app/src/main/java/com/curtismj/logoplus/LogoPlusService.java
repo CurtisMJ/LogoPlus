@@ -1,8 +1,13 @@
 package com.curtismj.logoplus;
 
+import android.app.AlertDialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.hardware.Sensor;
@@ -11,6 +16,7 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
 import android.os.BatteryManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -20,6 +26,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.PowerManager;
 import android.os.Process;
+import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
 import android.util.ArrayMap;
@@ -36,6 +43,9 @@ import com.curtismj.logoplus.persist.UIState;
 
 import java.io.IOException;
 import java.util.Locale;
+
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 public class LogoPlusService extends Service {
     public static final int SERVICE_START = 0;
@@ -256,7 +266,44 @@ public class LogoPlusService extends Service {
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         pocketModeWakelock  = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":PocketModeWorker");
 
+        if (!pm.isIgnoringBatteryOptimizations(BuildConfig.APPLICATION_ID))
+        {
+            createNotificationChannel();
+
+            Intent intent = new Intent();
+            intent.setAction(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, intent, 0);
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, "main_channel")
+                    .setSmallIcon(R.mipmap.ic_launcher_foreground)
+                    .setContentText(getString(R.string.batteryOptiDesc))
+                    .setContentIntent(pendingIntent)
+                    .setAutoCancel(true);
+
+            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
+
+            notificationManager.notify(null, 0, builder.build());
+
+        }
+
         notifyStarted();
+    }
+
+    private void createNotificationChannel() {
+        // Create the NotificationChannel, but only on API 26+ because
+        // the NotificationChannel class is new and not in the support library
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            CharSequence name = "Main Channel";
+            String description = "Main Channel";
+            int importance = NotificationManager.IMPORTANCE_DEFAULT;
+            NotificationChannel channel = new NotificationChannel("main_channel", name, importance);
+            channel.setDescription(description);
+            // Register the channel with the system; you can't change the importance
+            // or other notification behaviors after this
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
     }
 
     private void finishPocketMode() {
@@ -624,6 +671,7 @@ public class LogoPlusService extends Service {
         if (mServiceHandler != null) mServiceLooper.quitSafely();
         if (fsm != null) fsm.cleanup();
         if (offReceiver != null) unregisterReceiver(offReceiver);
+        if (levReceiver != null) unregisterReceiver(levReceiver);
         dao = null;
         db = null;
         fsm = null;

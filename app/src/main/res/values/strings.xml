@@ -47,4 +47,5 @@
     <string name="rolling">Rolling</string>
     <string name="batteryAnimationInfo">Battery Animation</string>
     <string name="batteryAnimationDesc">When this option is toggled on, the passive effect will be replaced by a charging animation when the device is plugged in. The animation will change color depending on the current battery level and charging speed.</string>
+    <string name="batteryOptiDesc">Please disable battery optimisations for Logo+ service</string>
 </resources>
