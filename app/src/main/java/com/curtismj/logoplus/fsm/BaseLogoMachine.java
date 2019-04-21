@@ -194,6 +194,8 @@ public class BaseLogoMachine extends StateMachine {
                         chargeLevel = (Integer)arg;
                         if (LEDState == LED_PASSIVE && chargeLevel != appliedChargeLevel)
                             LEDState = (chargeLevel == -1 || appliedChargeLevel == -1) ? LED_INVALIDATED : LED_STALE;
+                        else if (LEDState == LED_BLANK)
+                            LEDState = LED_INVALIDATED;
 
                         appliedChargeLevel = chargeLevel;
                         sm.ReverseFanIn(idleFanOut, otherState);
