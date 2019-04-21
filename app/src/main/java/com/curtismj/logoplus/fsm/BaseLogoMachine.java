@@ -11,7 +11,7 @@ public class BaseLogoMachine extends StateMachine {
 
     private interface ProgramBuilder
     {
-        String[] build();
+        String[] build(int oldState, int newState);
     }
 
     public static final int EFFECT_NONE = 0;
@@ -51,6 +51,7 @@ public class BaseLogoMachine extends StateMachine {
     protected  int[] latestNotifs = new int[0];
     protected  int ringColor;
     protected  int chargeLevel = -1;
+    protected  int appliedChargeLevel = -1;
     protected boolean inPocket = false;
     protected String[] currentPassiveProgram;
 
@@ -65,7 +66,7 @@ public class BaseLogoMachine extends StateMachine {
     private void stateSwitch(int targetState, ProgramBuilder builder)
     {
         if (LEDState != targetState) {
-            String[] newProgram = builder.build();
+            String[] newProgram = builder.build(LEDState, targetState);
             if (LEDState != LED_STALE || newProgram == null) _blankLights();
             LEDState = targetState;
             if (newProgram != null)
@@ -113,7 +114,7 @@ public class BaseLogoMachine extends StateMachine {
                 break;
         }
 
-        if (!state.batteryAnimation) chargeLevel = -1;
+        if (!state.batteryAnimation) chargeLevel = appliedChargeLevel = -1;
     }
 
     public BaseLogoMachine(Context _context, final UIState initial) {
@@ -137,21 +138,21 @@ public class BaseLogoMachine extends StateMachine {
 
         final ProgramBuilder currentPassiveBuilder = new ProgramBuilder() {
             @Override
-            public String[] build() {
-                return (chargeLevel > -1 ? MicroCodeManager.batteryProgramBuild(chargeLevel) : currentPassiveProgram);
+            public String[] build(int oldState, int newState) {
+                return (chargeLevel > -1 ? MicroCodeManager.batteryProgramBuild(chargeLevel, oldState == LED_INVALIDATED) : currentPassiveProgram);
             }
         };
 
         final ProgramBuilder notifsBuilder = new ProgramBuilder() {
             @Override
-            public String[] build() {
+            public String[] build(int oldState, int newState) {
                 return MicroCodeManager.notifyProgramBuild(latestNotifs);
             }
         };
 
         final ProgramBuilder ringBuilder = new ProgramBuilder() {
             @Override
-            public String[] build() {
+            public String[] build(int oldState, int newState) {
                 return MicroCodeManager.ringProgramBuild(ringColor);
             }
         };
@@ -191,7 +192,10 @@ public class BaseLogoMachine extends StateMachine {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         chargeLevel = (Integer)arg;
-                        if (LEDState == LED_PASSIVE) LEDState = LED_STALE;
+                        if (LEDState == LED_PASSIVE && chargeLevel != appliedChargeLevel)
+                            LEDState = (chargeLevel == -1 || appliedChargeLevel == -1) ? LED_INVALIDATED : LED_STALE;
+
+                        appliedChargeLevel = chargeLevel;
                         sm.ReverseFanIn(idleFanOut, otherState);
                     }
                 })

@@ -20,7 +20,7 @@ int main()
     fopen(FADERPATH, "w");
     for (int i = max; i >= 0; --i)
     {
-        usleep(5000);
+        usleep(2500);
         fprintf(fadefile, "%d", i);
         fflush(fadefile);
     }

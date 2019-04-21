@@ -521,7 +521,7 @@ public class MicroCodeManager {
         };
     }
 
-    public static String[] batteryProgramBuild(float chargeLevel) {
+    public static String[] batteryProgramBuild(float chargeLevel, boolean fadein) {
         LP55xProgram prog = new LP55xProgram(LP55xProgram.LP5523_MEMORY);
 
         byte red = prog.dw(0x1C0);
@@ -536,24 +536,34 @@ public class MicroCodeManager {
         int r = chargeLevel < 50f ? 255 : (int)((1f - ((chargeLevel - 50f) / 50f)) * 255f);
         int g = chargeLevel < 50f ? (int)((chargeLevel/ 50f) * 255f) : 255;
 
-        byte prog1 = prog.muxMapAddr(red);
-        prog.setPwm(r);
-        prog.muxMapAddr(green);
-        prog.setPwm(g);
-        prog.muxMapAddr(blue);
+        byte prog1 = prog.muxMapAddr(blue);
         prog.setPwm(0);
         prog.muxMapStart(bpad1);
         prog.muxLdEnd(bpad3);
-
-        byte upRamp1 = prog.ramp(100f, (byte) 0, 255);
-        prog.ramp(1000f, (byte) 1, 255);
+        if (fadein) prog.wait(400f, 2);
+        byte upRamp1 = prog.ramp(100f, (byte) 0, 128);
+        prog.ramp(1000f, (byte) 1, 128);
         prog.muxMapNext();
         prog.branch(0, upRamp1 - prog1);
 
 
-        byte prog2 = prog.end();
+        byte prog2 = prog.muxMapAddr(red);
+        if (fadein) {
+            prog.setPwm(0);
+            prog.ramp(1000f, (byte) 0, r);
+        }
+        else
+            prog.setPwm(r);
+        prog.end();
 
-        byte prog3 = prog.end();
+        byte prog3 = prog.muxMapAddr(green);
+        if (fadein) {
+            prog.setPwm(0);
+            prog.ramp(1000f, (byte) 0, g);
+        }
+        else
+            prog.setPwm(g);
+        prog.end();
 
         return new String[]{
                 String.format("%02X", prog1),
