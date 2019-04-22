@@ -538,12 +538,15 @@ public class MicroCodeManager {
 
         byte prog1 = prog.muxMapAddr(blue);
         prog.setPwm(0);
-        prog.muxMapStart(bpad1);
-        prog.muxLdEnd(bpad3);
+        if (chargeLevel < 98f) {
+            prog.muxMapStart(bpad1);
+            prog.muxLdEnd(bpad3);
+        }
         if (fadein) prog.wait(400f, 2);
         byte upRamp1 = prog.ramp(100f, (byte) 0, 128);
         prog.ramp(1000f, (byte) 1, 128);
-        prog.muxMapNext();
+        if (chargeLevel < 98f) prog.muxMapNext();
+        else prog.wait(400f, 4);
         prog.branch(0, upRamp1 - prog1);
 
 
