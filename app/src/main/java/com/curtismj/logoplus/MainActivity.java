@@ -64,6 +64,12 @@ import android.widget.ViewFlipper;
 
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -73,6 +79,7 @@ public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
     private static final int RESULT_PICK_CONTACT = 1;
+    private static final int RESULT_LOAD_CUSTOM = 2;
     Switch serviceStatusSwitch;
     Switch automationSwitch;
     Switch ringEffectSwtich;
@@ -364,6 +371,7 @@ public class MainActivity extends AppCompatActivity
                     case R.id.rainbowRadio: pref = BaseLogoMachine.EFFECT_RAINBOW; break;
                     case R.id.pinWheelRadio: pref = BaseLogoMachine.EFFECT_PINWHEEL; break;
                     case R.id.rollRadio: pref = BaseLogoMachine.EFFECT_ROLL; break;
+                    case R.id.customRadio: pref = BaseLogoMachine.EFFECT_CUSTOM; break;
                 }
                 state.passiveEffect = pref;
                 syncUIState();
@@ -376,6 +384,7 @@ public class MainActivity extends AppCompatActivity
             case BaseLogoMachine.EFFECT_RAINBOW: selectedButton = passiveGrp.findViewById(R.id.rainbowRadio); break;
             case BaseLogoMachine.EFFECT_PINWHEEL: selectedButton = passiveGrp.findViewById(R.id.pinWheelRadio); break;
             case BaseLogoMachine.EFFECT_ROLL: selectedButton = passiveGrp.findViewById(R.id.rollRadio); break;
+            case BaseLogoMachine.EFFECT_CUSTOM: selectedButton = passiveGrp.findViewById(R.id.customRadio); break;
         }
         selectedButton.setChecked(true);
         effectColor = findViewById(R.id.effectColorPick);
@@ -530,6 +539,16 @@ public class MainActivity extends AppCompatActivity
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 state.automationAllowed = isChecked;
                 syncUIState();
+            }
+        });
+
+        Button loadCustom = findViewById(R.id.loadBtn);
+        loadCustom.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.setType("text/plain");
+                startActivityForResult(intent,RESULT_LOAD_CUSTOM);
             }
         });
 
@@ -856,6 +875,67 @@ public class MainActivity extends AppCompatActivity
                         dbHandler.sendMessage(msg);
                     } catch (Exception e) {
                         e.printStackTrace();
+                    }
+                    break;
+                case RESULT_LOAD_CUSTOM:
+
+
+                    try {
+                        InputStream inputStream = getContentResolver().openInputStream(data.getData());
+                        BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
+                        String line;
+                        int lineCount = 0;
+                        String program = "";
+                        String[] offsets = new String[3];
+                        boolean finished = true;
+                        while ((line = br.readLine()) != null) {
+                            if (lineCount < 12)
+                            {
+                                line = line.replace(" ", "").trim();
+                                if (line.length() != 32)
+                                {
+                                    CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
+                                    finished = false;
+                                    break;
+                                }
+                                program += line;
+                            }
+                            else
+                            {
+                                String[] split = line.split(" ");
+                                if (split.length < 3 || !split[0].equals("@")) {
+                                    CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
+                                    break;
+                                }
+                                else if (split[2].equals("program1")) offsets[0] = split[1];
+                                else if (split[2].equals("program2")) offsets[1] = split[1];
+                                else if (split[2].equals("program3")) offsets[2] = split[1];
+                                else
+                                {
+                                    CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
+                                    finished = false;
+                                    break;
+                                }
+                            }
+                            lineCount++;
+                            if (lineCount >= 15) break;
+                        }
+                        br.close();
+                        if (finished) {
+                            if (lineCount < 15 || !MicroCodeManager.validateProgram(new String[]{offsets[0], offsets[0], offsets[0], program})) {
+                                CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
+                                break;
+                            }
+
+                            state.customProgram = offsets[0] + "," + offsets[1] + ","  + offsets[2] + "," + program;
+                            syncUIState();
+                            CommonUtils.genericDialog(this, R.string.customSuccTitle, R.string.customSuccMsg);
+                        }
+
+                    }
+                    catch (IOException e) {
+                        // dont load
+                        CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
                     }
                     break;
             }

@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase;
 import androidx.room.migration.Migration;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
-@Database(entities = {AppNotification.class,UIState.class, RingColor.class}, version = 5, exportSchema = false)
+@Database(entities = {AppNotification.class,UIState.class, RingColor.class}, version = 6, exportSchema = false)
 public abstract class LogoDatabase extends RoomDatabase {
     private  static LogoDatabase INSTANCE;
 
@@ -45,6 +45,13 @@ public abstract class LogoDatabase extends RoomDatabase {
         }
     };
 
+    private static final Migration MIGRATION_5_6 = new Migration(5, 6) {
+        @Override
+        public void migrate(SupportSQLiteDatabase database) {
+            database.execSQL("ALTER TABLE UIState  ADD COLUMN customProgram TEXT NOT NULL");
+        }
+    };
+
     public static LogoDatabase getInstance(final Context context) {
         synchronized (sLock) {
             if (INSTANCE == null) {
@@ -54,6 +61,7 @@ public abstract class LogoDatabase extends RoomDatabase {
                         .addMigrations(MIGRATION_2_3)
                         .addMigrations(MIGRATION_3_4)
                         .addMigrations(MIGRATION_4_5)
+                        .addMigrations(MIGRATION_5_6)
                         .build();
             }
             return INSTANCE;

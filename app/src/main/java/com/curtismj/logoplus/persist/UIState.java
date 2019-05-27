@@ -24,6 +24,7 @@ public class UIState {
     public boolean pocketMode;
     public boolean automationAllowed;
     public boolean batteryAnimation;
+    public String customProgram;
 
     public UIState()
     {
@@ -40,5 +41,6 @@ public class UIState {
         pocketMode = false;
         automationAllowed = false;
         batteryAnimation = false;
+        customProgram = "";
     }
 }

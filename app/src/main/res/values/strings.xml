@@ -48,4 +48,10 @@
     <string name="batteryAnimationInfo">Battery Animation</string>
     <string name="batteryAnimationDesc">When this option is toggled on, the passive effect will be replaced by a charging animation when the device is plugged in. The animation will change color depending on the current battery level.</string>
     <string name="batteryOptiDesc">Please disable battery optimisations for Logo+ service</string>
+    <string name="customRadio">Custom Effect</string>
+    <string name="loadCustom">Load Custom</string>
+    <string name="customErrTitle">Error loading effect</string>
+    <string name="customErrMsg">There was an error trying to load the custom effect. The effect has not been loaded</string>
+    <string name="customSuccTitle">Success</string>
+    <string name="customSuccMsg">The custom effect program was validated successfully. Selecting the Custom Effect effect type will now play the loaded program. </string>
 </resources>

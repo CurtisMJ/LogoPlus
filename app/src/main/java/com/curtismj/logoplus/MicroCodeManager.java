@@ -1,10 +1,14 @@
 package com.curtismj.logoplus;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class MicroCodeManager {
     public static class LP55xProgram {
         public byte currAddr;
         public short[] program;
         public static final int LP5523_MEMORY = 96;
+        public static final int LP5523_PROGRAM_STRING_SIZE = LP5523_MEMORY * 4;
 
         public LP55xProgram(int memory) {
             currAddr = 0;
@@ -119,6 +123,27 @@ public class MicroCodeManager {
             }
             return build.toString();
         }
+    }
+
+    private static Pattern hexValidator = Pattern.compile("^[0-9a-fA-F]+$");
+
+    public static boolean validateProgram(String[] program)
+    {
+        if (program.length != 4
+                || program[0].length() != 2
+                || program[1].length() != 2
+                || program[2].length() != 2
+                || program[3].length() != LP55xProgram.LP5523_PROGRAM_STRING_SIZE)
+            return false;
+
+        Matcher m = hexValidator.matcher(program[0]);
+        if (!m.matches()
+                || !m.reset(program[1]).matches()
+                || !m.reset(program[2]).matches()
+                || !m.reset(program[3]).matches())
+            return false;
+
+        return true;
     }
 
     public static String[] staticProgramBuild(int color) {

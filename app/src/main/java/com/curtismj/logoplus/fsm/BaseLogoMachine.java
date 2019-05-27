@@ -1,6 +1,7 @@
 package com.curtismj.logoplus.fsm;
 
 import android.content.Context;
+import android.graphics.Color;
 import android.os.PowerManager;
 import android.util.Log;
 
@@ -20,6 +21,7 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EFFECT_RAINBOW = 3;
     public static final int EFFECT_PINWHEEL = 4;
     public static final int EFFECT_ROLL = 5;
+    public static final int EFFECT_CUSTOM = 6;
 
     public static final int STATE_SCREENON = 0;
     public static final int STATE_SCREENOFF = 1;
@@ -111,6 +113,11 @@ public class BaseLogoMachine extends StateMachine {
                 break;
             case EFFECT_ROLL:
                 currentPassiveProgram = MicroCodeManager.rollProgramBuild();
+                break;
+            case EFFECT_CUSTOM:
+                currentPassiveProgram = _state.customProgram.split(",");
+                if (!MicroCodeManager.validateProgram(currentPassiveProgram))
+                    currentPassiveProgram = MicroCodeManager.pulseProgramBuild(1000, Color.RED);
                 break;
         }
 
