@@ -87,13 +87,12 @@ public class RootLogoMachine extends BaseLogoMachine {
                 setWantSTDERR(true).
                 setWatchdogTimeout(5).
                 setMinimalLogging(true).
-                open(new Shell.OnCommandResultListener() {
-
-                    // Callback to report whether the shell was successfully started up
+                open(new Shell.OnShellOpenResultListener() {
                     @Override
-                    public void onCommandResult(int commandCode, int exitCode, List<String> output) {
-                        Log.d("debug", "Shell result: " + commandCode + "," + exitCode);
-                        RootAvail = ((shellExitCode = exitCode) == Shell.OnCommandResultListener.SHELL_RUNNING);
+                    public void onOpenResult(boolean success, int reason)
+                    {
+                        Log.d("debug", "Shell open result: success" + success + " reason:" + reason);
+                        RootAvail = success;
                     }
                 });
 
