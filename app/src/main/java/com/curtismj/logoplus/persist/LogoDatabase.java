@@ -48,7 +48,7 @@ public abstract class LogoDatabase extends RoomDatabase {
     private static final Migration MIGRATION_5_6 = new Migration(5, 6) {
         @Override
         public void migrate(SupportSQLiteDatabase database) {
-            database.execSQL("ALTER TABLE UIState  ADD COLUMN customProgram TEXT NOT NULL");
+            database.execSQL("ALTER TABLE UIState  ADD COLUMN customProgram TEXT");
         }
     };
 

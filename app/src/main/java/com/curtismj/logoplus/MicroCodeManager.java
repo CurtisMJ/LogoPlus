@@ -125,7 +125,7 @@ public class MicroCodeManager {
         }
     }
 
-    private static Pattern hexValidator = Pattern.compile("^[0-9a-fA-F]+$");
+    private static Pattern hexValidator = Pattern.compile("^[0-9A-F]+$");
 
     public static boolean validateProgram(String[] program)
     {
