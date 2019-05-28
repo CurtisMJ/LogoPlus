@@ -905,6 +905,7 @@ public class MainActivity extends AppCompatActivity
                                 String[] split = line.split(" ");
                                 if (split.length < 3 || !split[0].equals("@")) {
                                     CommonUtils.genericDialog(this, R.string.customErrTitle, R.string.customErrMsg);
+                                    finished = false;
                                     break;
                                 }
                                 else if (split[2].equals("program1")) offsets[0] = split[1];
