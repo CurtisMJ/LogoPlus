@@ -184,7 +184,7 @@ public class LogoPlusService extends Service {
                     ringAnimCache.put("", ringColor.color);
                 }
                 else {
-                    ringAnimCache.put(PhoneNumberUtils.formatNumber(ringColor.number, Locale.getDefault().getCountry()), ringColor.color);
+                    ringAnimCache.put(PhoneNumberUtils.formatNumberToE164(ringColor.number, Locale.getDefault().getCountry()), ringColor.color);
                 }
             }
         }
@@ -438,7 +438,7 @@ public class LogoPlusService extends Service {
 
                         String state = data.getString(TelephonyManager.EXTRA_STATE);
                         if (TelephonyManager.EXTRA_STATE_RINGING.equals(state)) {
-                            String number = PhoneNumberUtils.formatNumber(data.getString(TelephonyManager.EXTRA_INCOMING_NUMBER), Locale.getDefault().getCountry());
+                            String number = PhoneNumberUtils.formatNumberToE164(data.getString(TelephonyManager.EXTRA_INCOMING_NUMBER), Locale.getDefault().getCountry());
                             if (ringAnimCache.containsKey(number))
                                 fsm.Event(BaseLogoMachine.EVENT_RING, ringAnimCache.get(number));
                             else if (ringAnimCache.containsKey(""))
