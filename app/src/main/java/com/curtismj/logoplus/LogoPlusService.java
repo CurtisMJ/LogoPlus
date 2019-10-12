@@ -61,11 +61,13 @@ public class LogoPlusService extends Service {
     public static final int AUTOMATION = 12;
     public static final int CHARGE_UPDATE = 13;
     public static final int CHARGE_STOP = 14;
+    public static final int PREVIEW= 15;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
     public static  final  String APPLY_EFFECT = BuildConfig.APPLICATION_ID + ".ApplyEffect";
     public static  final  String FIRE_AUTOMATION = BuildConfig.APPLICATION_ID + ".FireAutomation";
+    public static  final  String PREVIEW_NOTIF = BuildConfig.APPLICATION_ID + ".Preview";
 
     private Looper mServiceLooper;
     private ServiceHandler mServiceHandler;
@@ -155,6 +157,7 @@ public class LogoPlusService extends Service {
         intentFilter.addAction(APPLY_EFFECT);
         intentFilter.addAction(LogoPlusNotificationListener.START_BROADCAST);
         intentFilter.addAction(FIRE_AUTOMATION);
+        intentFilter.addAction(PREVIEW_NOTIF);
         if (state.ringAnimation) {
             Log.d("debug", "Subscribing to phone state");
             intentFilter.addAction(TelephonyManager.ACTION_PHONE_STATE_CHANGED);
@@ -524,6 +527,20 @@ public class LogoPlusService extends Service {
                 case CHARGE_STOP:
                     fsm.Event(BaseLogoMachine.EVENT_CHARGE_UPDATE, -1);
                     break;
+
+                case PREVIEW:
+                    Bundle data = msg.getData();
+                    boolean active = data.getBoolean("previewMode");
+
+                    if (active)
+                    {
+                        int preview = data.getInt("preview");
+                        fsm.Event(BaseLogoMachine.EVENT_PREVIEW_UPDATE, preview);
+                    }
+                    else
+                        fsm.Event(BaseLogoMachine.EVENT_PREVIEW_UPDATE, null);
+
+                    break;
             }
         }
     }
@@ -603,6 +620,12 @@ public class LogoPlusService extends Service {
                         msg.setData(intent.getExtras());
                         mServiceHandler.sendMessage(msg);
                     }
+                    break;
+                case PREVIEW_NOTIF:
+                    Log.d("debug", "preview notif");
+                    msg = mServiceHandler.obtainMessage(PREVIEW);
+                    msg.setData(intent.getExtras());
+                    mServiceHandler.sendMessage(msg);
                     break;
                 case Intent.ACTION_POWER_CONNECTED:
                     ignoreBatteryUpdates = false;

@@ -134,7 +134,7 @@ public class AutomationInstruction extends FrameLayout {
                         passColor = Integer.toString(color);
                         colorText.setText(passColor);
                     }
-                }, null);
+                }, null, null, null);
             }
         });
         colorText.addTextChangedListener(new TextWatcher() {

@@ -14,7 +14,12 @@ public class CommonUtils {
         void run(int color);
     }
 
-    public static void colorPickDialog(Context context, int initial, final ColorPickCallback ok, final ColorPickCallback remove, final ColorObserver observer) {
+    public interface BlankCallback
+    {
+        void run();
+    }
+
+    public static void colorPickDialog(Context context, int initial, final ColorPickCallback ok, final ColorPickCallback remove, final ColorObserver observer, final  BlankCallback cancel) {
         final ColorPickerView picker = new ColorPickerView(context);
         picker.setColor(initial);
         picker.showAlpha(false);
@@ -33,7 +38,23 @@ public class CommonUtils {
                         ok.run(picker.getColor());
                     }
                 })
-                .setNegativeButton(R.string.cancel, null);;
+                .setNegativeButton(R.string.cancel, null);
+
+        if (cancel != null) {
+            pickerBuilder
+                    .setOnCancelListener(new DialogInterface.OnCancelListener() {
+                        @Override
+                        public void onCancel(DialogInterface dialog) {
+                            cancel.run();
+                        }
+                    })
+                    .setOnDismissListener(new DialogInterface.OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogInterface dialog) {
+                            cancel.run();
+                        }
+                    });
+        }
 
         if (remove != null) {
             pickerBuilder.setNeutralButton(R.string.remove_effect, new DialogInterface.OnClickListener() {

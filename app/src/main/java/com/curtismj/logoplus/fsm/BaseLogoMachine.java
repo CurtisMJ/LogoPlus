@@ -221,8 +221,12 @@ public class BaseLogoMachine extends StateMachine {
                 .Enter(STATE_PREVIEW_UPDATE, new Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        previewNotif = (Integer)arg;
-                        previewActive = true;
+                        if (arg != null) {
+                            previewNotif = (Integer) arg;
+                            previewActive = true;
+                        }
+                        else
+                            previewActive = false;
                         LEDState = LED_STALE;
                         sm.ReverseFanIn(idleFanOut, otherState);
                     }

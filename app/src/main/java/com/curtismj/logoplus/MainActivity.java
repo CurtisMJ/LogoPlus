@@ -63,6 +63,8 @@ import android.widget.Switch;
 import android.widget.ViewFlipper;
 
 import com.google.android.gms.oss.licenses.OssLicensesMenuActivity;
+import com.rarepebble.colorpicker.ColorObserver;
+import com.rarepebble.colorpicker.ObservableColor;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -113,6 +115,7 @@ public class MainActivity extends AppCompatActivity
     private  static final int ADD_RING_COLOR = 4;
     private  static final int ADD_RING_COLOR_ADD = 5;
     private  static final int DELETE_RING_COLOR = 6;
+    private  static final int PREVIEW_NOTIF = 7;
 
     private  final class DbHandler extends Handler {
 
@@ -122,6 +125,7 @@ public class MainActivity extends AppCompatActivity
 
         @Override
         public void handleMessage(Message msg) {
+            Intent broadCastIntent;
             switch (msg.what)
             {
                 case UPDATE_UI_STATE:
@@ -130,10 +134,30 @@ public class MainActivity extends AppCompatActivity
 
                 case ADD_NOTIF:
                     dao.addAppNotification((AppNotification)msg.obj);
+                    broadCastIntent = new Intent();
+                    broadCastIntent.setAction(LogoPlusService.PREVIEW_NOTIF);
+                    broadCastIntent.putExtra("previewMode", false);
+                    sendBroadcast(broadCastIntent);
                     break;
 
                 case DELETE_NOTIF:
                     dao.deleteAppNotification((String)msg.obj);
+                    broadCastIntent = new Intent();
+                    broadCastIntent.setAction(LogoPlusService.PREVIEW_NOTIF);
+                    broadCastIntent.putExtra("previewMode", false);
+                    sendBroadcast(broadCastIntent);
+                    break;
+
+                case PREVIEW_NOTIF:
+                    broadCastIntent = new Intent();
+                    broadCastIntent.setAction(LogoPlusService.PREVIEW_NOTIF);
+                    if (msg.obj != null) {
+                        broadCastIntent.putExtra("previewMode", true);
+                        broadCastIntent.putExtra("preview", (Integer) msg.obj);
+                    }
+                    else
+                        broadCastIntent.putExtra("previewMode", false);
+                    sendBroadcast(broadCastIntent);
                     break;
 
                 case ADD_RING_COLOR:
@@ -267,23 +291,37 @@ public class MainActivity extends AppCompatActivity
                 final ApplicationAdapter.AppInfoWrap info = listAdapter.appsList.get(position);
                 CommonUtils.colorPickDialog(MainActivity.this, info.color == null ? Color.GREEN : info.color, new CommonUtils.ColorPickCallback() {
                     @Override
-                    public void run( int color) {
+                    public void run(int color) {
                         AppNotification notif = new AppNotification(info.info.packageName);
                         notif.color = color;
                         Message msg = dbHandler.obtainMessage(ADD_NOTIF, notif);
                         dbHandler.sendMessage(msg);
-                        listAdapter.appsList.get(position).color =  notif.color ;
+                        listAdapter.appsList.get(position).color = notif.color;
                         listAdapter.notifyDataSetChanged();
                     }
                 }, new CommonUtils.ColorPickCallback() {
                     @Override
-                    public void run( int color) {
+                    public void run(int color) {
                         Message msg = dbHandler.obtainMessage(DELETE_NOTIF, info.info.packageName);
                         dbHandler.sendMessage(msg);
                         listAdapter.appsList.get(position).color = null;
                         listAdapter.notifyDataSetChanged();
                     }
-                }, null);
+                }, new ColorObserver() {
+                    @Override
+                    public void updateColor(ObservableColor observableColor) {
+                        dbHandler.removeMessages(PREVIEW_NOTIF);
+                        Message msg = dbHandler.obtainMessage(PREVIEW_NOTIF, observableColor.getColor());
+                        dbHandler.sendMessageDelayed(msg, 1000);
+                    }
+                }, new CommonUtils.BlankCallback() {
+                    @Override
+                    public void run() {
+                        dbHandler.removeMessages(PREVIEW_NOTIF);
+                        Message msg = dbHandler.obtainMessage(PREVIEW_NOTIF, null);
+                        dbHandler.sendMessage(msg);
+                    }
+                });
             }
         });
 
@@ -316,7 +354,7 @@ public class MainActivity extends AppCompatActivity
                             dbHandler.sendMessage(msg);
                         }
                     }
-                }, null);
+                }, null, null);
             }
         });
 
@@ -399,7 +437,7 @@ public class MainActivity extends AppCompatActivity
                         syncUIState();
                         effectColor.setBackgroundColor(color);
                     }
-                }, null, null);
+                }, null, null, null);
             }
         });
 
