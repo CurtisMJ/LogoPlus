@@ -283,7 +283,7 @@ public class MainActivity extends AppCompatActivity
                         listAdapter.appsList.get(position).color = null;
                         listAdapter.notifyDataSetChanged();
                     }
-                });
+                }, null);
             }
         });
 
@@ -316,7 +316,7 @@ public class MainActivity extends AppCompatActivity
                             dbHandler.sendMessage(msg);
                         }
                     }
-                });
+                }, null);
             }
         });
 
@@ -399,7 +399,7 @@ public class MainActivity extends AppCompatActivity
                         syncUIState();
                         effectColor.setBackgroundColor(color);
                     }
-                }, null);
+                }, null, null);
             }
         });
 

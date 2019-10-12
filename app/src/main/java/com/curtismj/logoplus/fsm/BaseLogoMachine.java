@@ -27,19 +27,21 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_SCREENOFF = 1;
     public static final int STATE_NOTIF_UPDATE = 2;
     public static final int STATE_STATE_UPDATE = 3;
-    public static final int STATE_RINGING= 5;
-    public static final int STATE_RESTORE_JUNCTION= 6;
-    public static final int STATE_POCKET_JUNCTION= 7;
-    public static final int STATE_CHARGE_UPDATE = 8;
+    public static final int STATE_RINGING= 4;
+    public static final int STATE_RESTORE_JUNCTION= 5;
+    public static final int STATE_POCKET_JUNCTION= 6;
+    public static final int STATE_CHARGE_UPDATE = 7;
+    public static final int STATE_PREVIEW_UPDATE = 8;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
     public static final int EVENT_NOTIF_UPDATE =  2;
     public static final int EVENT_STATE_UPDATE =  3;
-    public static final int EVENT_RING = 6;
-    public static final int EVENT_STOP_RING = 7;
-    public static final int EVENT_POCKET_MODE = 8;
-    public static final int EVENT_CHARGE_UPDATE =  9;
+    public static final int EVENT_RING = 4;
+    public static final int EVENT_STOP_RING = 5;
+    public static final int EVENT_POCKET_MODE = 6;
+    public static final int EVENT_CHARGE_UPDATE =  7;
+    public static final int EVENT_PREVIEW_UPDATE =  8;
 
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
@@ -51,6 +53,8 @@ public class BaseLogoMachine extends StateMachine {
     protected int LEDState;
     protected UIState state;
     protected  int[] latestNotifs = new int[0];
+    protected  int previewNotif;
+    protected  boolean previewActive;
     protected  int ringColor;
     protected  int chargeLevel = -1;
     protected  int appliedChargeLevel = -1;
@@ -146,7 +150,7 @@ public class BaseLogoMachine extends StateMachine {
         final ProgramBuilder currentPassiveBuilder = new ProgramBuilder() {
             @Override
             public String[] build(int oldState, int newState) {
-                return (chargeLevel > -1 ? MicroCodeManager.batteryProgramBuild(chargeLevel, oldState == LED_INVALIDATED) : currentPassiveProgram);
+                return (previewActive ? MicroCodeManager.notifyProgramBuild(new int[] { previewNotif }) : (chargeLevel > -1 ? MicroCodeManager.batteryProgramBuild(chargeLevel, oldState == LED_INVALIDATED) : currentPassiveProgram));
             }
         };
 
@@ -187,6 +191,7 @@ public class BaseLogoMachine extends StateMachine {
                     public void run(StateMachine sm, int otherState, Object arg) {
                         updateState((UIState) arg);
                         LEDState = LED_STALE;
+                        previewActive = false;
                         sm.ReverseFanIn(idleFanOut, otherState);
                     }
                 })
@@ -205,6 +210,20 @@ public class BaseLogoMachine extends StateMachine {
                             LEDState = LED_INVALIDATED;
 
                         appliedChargeLevel = chargeLevel;
+                        sm.ReverseFanIn(idleFanOut, otherState);
+                    }
+                })
+
+                // Mid state preview change (usually NOT silent)
+                .FanIn(idleFanIn, EVENT_PREVIEW_UPDATE, STATE_PREVIEW_UPDATE)
+                // Preview update back to state
+                .FanOut(STATE_PREVIEW_UPDATE, idleFanOut)
+                .Enter(STATE_PREVIEW_UPDATE, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        previewNotif = (Integer)arg;
+                        previewActive = true;
+                        LEDState = LED_STALE;
                         sm.ReverseFanIn(idleFanOut, otherState);
                     }
                 })

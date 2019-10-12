@@ -4,7 +4,9 @@ import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 
+import com.rarepebble.colorpicker.ColorObserver;
 import com.rarepebble.colorpicker.ColorPickerView;
+import com.rarepebble.colorpicker.ObservableColor;
 
 public class CommonUtils {
     public interface ColorPickCallback
@@ -12,12 +14,15 @@ public class CommonUtils {
         void run(int color);
     }
 
-    public static void colorPickDialog(Context context, int initial, final ColorPickCallback ok, final ColorPickCallback remove) {
+    public static void colorPickDialog(Context context, int initial, final ColorPickCallback ok, final ColorPickCallback remove, final ColorObserver observer) {
         final ColorPickerView picker = new ColorPickerView(context);
         picker.setColor(initial);
         picker.showAlpha(false);
         picker.showHex(true);
         picker.showPreview(true);
+        if (observer != null)
+            picker.addColorObserver(observer);
+
         AlertDialog.Builder pickerBuilder = new AlertDialog.Builder(context);
         pickerBuilder
                 .setTitle(null)
