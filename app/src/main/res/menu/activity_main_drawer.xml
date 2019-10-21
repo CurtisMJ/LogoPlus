@@ -32,4 +32,10 @@
         android:title="@string/autoAllow"
         app:actionLayout="@layout/switch_item"
         app:showAsAction="always" />
+
+    <item
+        android:id="@+id/vis_switch"
+        android:title="@string/visualizerOn"
+        app:actionLayout="@layout/switch_item"
+        app:showAsAction="always"/>
 </menu>

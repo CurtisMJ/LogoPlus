@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity
     Switch serviceStatusSwitch;
     Switch automationSwitch;
     Switch ringEffectSwtich;
+    Switch visSwtich;
 
     ListView appList, numberList;
     CheckBox showSystem;
@@ -580,6 +581,18 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
+        MenuItem visSwitchItem = menu.findItem(R.id.vis_switch);
+        visSwtich = visSwitchItem.getActionView().findViewWithTag("innerSwitch");
+        visSwtich.setEnabled(true);
+        visSwtich.setChecked(state.visualizer);
+        visSwtich.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                state.visualizer = isChecked;
+                syncUIState();
+            }
+        });
+
         Button loadCustom = findViewById(R.id.loadBtn);
         loadCustom.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -649,7 +662,7 @@ public class MainActivity extends AppCompatActivity
     public boolean onNavigationItemSelected(MenuItem item) {
         // Handle navigation view item clicks here.
         int id = item.getItemId();
-
+        Intent broadCastIntent;
         if (id == R.id.aboutItem) {
             AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
             aboutBuilder.setTitle(R.string.about_title);

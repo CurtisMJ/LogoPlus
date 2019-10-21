@@ -15,6 +15,9 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
+import android.media.AudioAttributes;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
 import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -26,6 +29,7 @@ import android.os.Message;
 import android.os.Messenger;
 import android.os.PowerManager;
 import android.os.Process;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.telephony.PhoneNumberUtils;
 import android.telephony.TelephonyManager;
@@ -42,6 +46,7 @@ import com.curtismj.logoplus.persist.RingColor;
 import com.curtismj.logoplus.persist.UIState;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Locale;
 
 import androidx.core.app.NotificationCompat;
@@ -62,6 +67,8 @@ public class LogoPlusService extends Service {
     public static final int CHARGE_UPDATE = 13;
     public static final int CHARGE_STOP = 14;
     public static final int PREVIEW= 15;
+    public static final int VIS_START= 16;
+    public static final int VIS_STOP = 17;
 
     public static  final  String START_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceAlive";
     public static  final  String START_FAIL_BROADCAST = BuildConfig.APPLICATION_ID + ".ServiceFailedStart";
@@ -80,12 +87,14 @@ public class LogoPlusService extends Service {
     private  boolean phoneStateListening = false;
     private ArrayMap<String, Integer> ringAnimCache;
     private  SensorManager mSensorManager;
+    private AudioManager mAudioManager;
     private Sensor accelSensor;
     private Sensor lightSensor;
     private Sensor proximitySensor;
     private  AccelListener accelListener;
     private  LightListener lightListener;
     private  ProximityListener proximityListener;
+    private PlaybackListener playbackListener;
     private float[] accel = new float[3];
     private  float lux;
     private  float proximity;
@@ -97,6 +106,7 @@ public class LogoPlusService extends Service {
     private  int sensorBounces = 0;
     private boolean chargeAnimationEnabled = false;
     private boolean ignoreBatteryUpdates = true;
+    private boolean visOn = false;
 
     private PowerManager pm;
     private PowerManager.WakeLock pocketModeWakelock;
@@ -168,11 +178,23 @@ public class LogoPlusService extends Service {
             intentFilter.addAction(Intent.ACTION_POWER_CONNECTED);
             intentFilter.addAction(Intent.ACTION_POWER_DISCONNECTED);
         }
+        if (state.visualizer)
+        {
+            if (!visOn)
+                mAudioManager.registerAudioPlaybackCallback(playbackListener, null);
+        }
+        else
+        {
+            if (visOn)
+                mAudioManager.unregisterAudioPlaybackCallback(playbackListener);
+        }
+
         offReceiver = new LogoBroadcastReceiver();
         registerReceiver(offReceiver, intentFilter);
         phoneStateListening = state.ringAnimation;
         pocketModeEnabled = state.pocketMode;
         chargeAnimationEnabled = state.batteryAnimation;
+        visOn = state.visualizer;
     }
 
     private void cacheRebuild()
@@ -193,6 +215,25 @@ public class LogoPlusService extends Service {
         }
         else
             ringAnimCache = null;
+    }
+
+    private  final class PlaybackListener extends  AudioManager.AudioPlaybackCallback {
+        @Override
+        public void onPlaybackConfigChanged(List<AudioPlaybackConfiguration> configs) {
+            Log.d("Debug", "Playback state");
+            boolean media_playing = false;
+            for (AudioPlaybackConfiguration config :configs )
+            {
+                AudioAttributes attr = config.getAudioAttributes();
+                if (attr.getUsage() == AudioAttributes.USAGE_MEDIA)
+                {
+                    media_playing = true;
+                    break;
+                }
+            }
+            Message msg = mServiceHandler.obtainMessage(media_playing ? VIS_START : VIS_STOP);
+            mServiceHandler.sendMessage(msg);
+        }
     }
 
     private  final class AccelListener implements SensorEventListener {
@@ -254,6 +295,9 @@ public class LogoPlusService extends Service {
 
         if (fsm == null) return;
 
+        mAudioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        playbackListener = new PlaybackListener();
+
         cacheRebuild();
 
         buildReceiver();
@@ -265,6 +309,8 @@ public class LogoPlusService extends Service {
         accelListener = new AccelListener();
         lightListener = new LightListener();
         proximityListener = new ProximityListener();
+
+
 
         pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
         pocketModeWakelock  = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, BuildConfig.APPLICATION_ID + ":PocketModeWorker");
@@ -355,14 +401,13 @@ public class LogoPlusService extends Service {
                         We need to give the accelerometer time to calibrate. Also we cant really check immediately after the
                         screen goes off as the user is probably still about to put the device into their pocket
                      */
+                        sensorSatisfactory = false;
+                        lightDataReceived = false;
                         mSensorManager.registerListener(accelListener, accelSensor, SensorManager.SENSOR_DELAY_NORMAL);
                         if (!pocketModeWakelockHeld) {
                             pocketModeWakelock.acquire(20000);
                             pocketModeWakelockHeld = true;
                         }
-                        sensorSatisfactory = false;
-                        lightDataReceived = false;
-                        proximityDataReceived = false;
                         sensorBounces = 0;
                         msg = mServiceHandler.obtainMessage(REGISTER_LIGHT_SENSOR);
                         mServiceHandler.sendMessageDelayed(msg, 3500);
@@ -381,7 +426,7 @@ public class LogoPlusService extends Service {
 
                     if (sensorBounces < 3 && (!sensorSatisfactory || !lightDataReceived || !proximityDataReceived)) {
                         // keep going
-                        Log.d("Debug", "pocket mode not enough data, waiting...");
+                        Log.d("Debug", "pocket mode not enough data, waiting... " + sensorSatisfactory + " " + lightDataReceived + " " + proximityDataReceived + " " + sensorBounces);
                         msg = mServiceHandler.obtainMessage(FINAL_POCKET_CHECK);
                         mServiceHandler.sendMessageDelayed(msg, 5000);
                         sensorBounces++;
@@ -541,6 +586,14 @@ public class LogoPlusService extends Service {
                         fsm.Event(BaseLogoMachine.EVENT_PREVIEW_UPDATE, null);
 
                     break;
+
+                case VIS_START:
+                    fsm.Event(BaseLogoMachine.EVENT_VISUALIZER_START);
+                    break;
+
+                case VIS_STOP:
+                    fsm.Event(BaseLogoMachine.EVENT_VISUALIZER_STOP);
+                    break;
             }
         }
     }
@@ -550,7 +603,10 @@ public class LogoPlusService extends Service {
 
         cacheRebuild();
 
-        if (state.ringAnimation != phoneStateListening || state.pocketMode != pocketModeEnabled || state.batteryAnimation != chargeAnimationEnabled) {
+        if (state.ringAnimation != phoneStateListening ||
+                state.pocketMode != pocketModeEnabled ||
+                state.batteryAnimation != chargeAnimationEnabled ||
+                state.visualizer != visOn) {
             buildReceiver();
         }
 
@@ -583,7 +639,10 @@ public class LogoPlusService extends Service {
                 case Intent.ACTION_SCREEN_OFF:
                     Log.d("debug", "screen off, request service resume");
                     /* Proximity sensor needs to be registered earlier to keep the sensor awake for a moment */
-                    if (state.pocketMode) mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
+                    if (state.pocketMode) {
+                        proximityDataReceived = false;
+                        mSensorManager.registerListener(proximityListener, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL);
+                    }
                      msg = mServiceHandler.obtainMessage(SCREENOFF);
                     mServiceHandler.sendMessage(msg);
                     break;
@@ -646,6 +705,8 @@ public class LogoPlusService extends Service {
                     msg = mServiceHandler.obtainMessage(CHARGE_STOP);
                     mServiceHandler.sendMessage(msg);
                     break;
+
+
             }
         }
     }

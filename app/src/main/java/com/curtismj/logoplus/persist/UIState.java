@@ -25,6 +25,7 @@ public class UIState {
     public boolean automationAllowed;
     public boolean batteryAnimation;
     public String customProgram;
+    public boolean visualizer;
 
     public UIState()
     {
@@ -42,5 +43,6 @@ public class UIState {
         automationAllowed = false;
         batteryAnimation = false;
         customProgram = "";
+        visualizer = false;
     }
 }

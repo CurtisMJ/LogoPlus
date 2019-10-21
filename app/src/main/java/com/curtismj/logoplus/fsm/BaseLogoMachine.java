@@ -32,6 +32,7 @@ public class BaseLogoMachine extends StateMachine {
     public static final int STATE_POCKET_JUNCTION= 6;
     public static final int STATE_CHARGE_UPDATE = 7;
     public static final int STATE_PREVIEW_UPDATE = 8;
+    public static final int STATE_VISUALIZER = 9;
 
     public static final int EVENT_SCREENON = 0;
     public static final int EVENT_SCREENOFF = 1;
@@ -42,6 +43,8 @@ public class BaseLogoMachine extends StateMachine {
     public static final int EVENT_POCKET_MODE = 6;
     public static final int EVENT_CHARGE_UPDATE =  7;
     public static final int EVENT_PREVIEW_UPDATE =  8;
+    public static final int EVENT_VISUALIZER_START = 9;
+    public static final int EVENT_VISUALIZER_STOP = 10;
 
     public static final int LED_PASSIVE =  0;
     public static final int LED_NOTIF = 1;
@@ -58,7 +61,7 @@ public class BaseLogoMachine extends StateMachine {
     protected  int ringColor;
     protected  int chargeLevel = -1;
     protected  int appliedChargeLevel = -1;
-    protected boolean inPocket = false;
+    protected boolean inPocket = false, visualizer = false;
     protected String[] currentPassiveProgram;
 
     protected PowerManager pm;
@@ -81,6 +84,14 @@ public class BaseLogoMachine extends StateMachine {
     }
 
     protected void blankLights() {
+        // base does nothing
+    }
+
+    protected void startVisualize() {
+        // base does nothing
+    }
+
+    protected void stopVisualize() {
         // base does nothing
     }
 
@@ -139,12 +150,14 @@ public class BaseLogoMachine extends StateMachine {
         final int[] idleFanIn = new int[]{
           STATE_SCREENON,
           STATE_SCREENOFF,
-          STATE_RINGING};
+          STATE_RINGING,
+          STATE_VISUALIZER};
 
         final int[][] idleFanOut = new int[][] {
           {EVENT_SCREENON,STATE_SCREENON},
           {EVENT_SCREENOFF,STATE_SCREENOFF},
-          {EVENT_RING,STATE_RINGING}
+          {EVENT_RING,STATE_RINGING},
+          {EVENT_VISUALIZER_START,STATE_VISUALIZER}
         };
 
         final ProgramBuilder currentPassiveBuilder = new ProgramBuilder() {
@@ -273,7 +286,7 @@ public class BaseLogoMachine extends StateMachine {
                     }
                 })
 
-                .FanIn(new int[] { STATE_SCREENOFF, STATE_SCREENON }, EVENT_RING, STATE_RINGING)
+                .FanIn(new int[] { STATE_SCREENOFF, STATE_SCREENON, STATE_VISUALIZER }, EVENT_RING, STATE_RINGING)
                 .Transition(STATE_RINGING, EVENT_STOP_RING, STATE_RESTORE_JUNCTION)
 
                 .Enter(STATE_RINGING, new Callback() {
@@ -287,11 +300,38 @@ public class BaseLogoMachine extends StateMachine {
 
                 .FanOut(STATE_RESTORE_JUNCTION,new int[][] {
                         {EVENT_SCREENON,STATE_SCREENON},
-                        {EVENT_SCREENOFF,STATE_SCREENOFF}})
+                        {EVENT_SCREENOFF,STATE_SCREENOFF},
+                        {EVENT_VISUALIZER_START,STATE_VISUALIZER}})
                 .Enter(STATE_RESTORE_JUNCTION, new StateMachine.Callback() {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
-                        sm.Event(pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF);
+                        sm.Event(visualizer ? EVENT_VISUALIZER_START : (pm.isInteractive() ? EVENT_SCREENON : EVENT_SCREENOFF));
+                    }
+                })
+
+                .FanIn(new int[] { STATE_SCREENOFF, STATE_SCREENON }, EVENT_VISUALIZER_START, STATE_VISUALIZER)
+                .Transition(STATE_VISUALIZER, EVENT_VISUALIZER_STOP, STATE_RESTORE_JUNCTION)
+                .Enter(STATE_VISUALIZER, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        visualizer = true;
+                        startVisualize();
+                        LEDState = LED_INVALIDATED;
+                    }
+                })
+                .Exit(STATE_VISUALIZER, new Callback() {
+                    @Override
+                    public void run(StateMachine sm, int otherState, Object arg) {
+                        switch (otherState)
+                        {
+                            case STATE_RESTORE_JUNCTION:
+                                visualizer = false;
+                                /* No break is intentional */
+
+                            case STATE_RINGING:
+                                stopVisualize();
+                                break;
+                        }
                     }
                 });
         
