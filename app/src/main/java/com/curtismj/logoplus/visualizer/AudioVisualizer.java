@@ -10,25 +10,11 @@ public class AudioVisualizer implements Visualizer.OnDataCaptureListener  {
     private static final float MAX_DB_VALUE = 45;
 
     private static final int F1 = 300;
-    private static final int F2 = 1000;
-    private static final int F3 = 1500;
-    private static final int F4 = 1800;
-    private static final int F5 = 2000;
-    private static final int F6 = 2200;
-    private static final int F7 = 2500;
-    private static final int F8 = 2800;
-    private static final int F9 = 3000;
+    private static final int F2 = 3000;
 
     private static final float[] SOUND_INDEX_COEFFICIENTS = new float[]{
             F1 / 44100f,
-            F2 / 44100f,
-            F3  / 44100f,
-            F4 / 44100f,
-            F5 / 44100f,
-            F6  / 44100f,
-            F7 / 44100f,
-            F8 / 44100f,
-            F9  / 44100f
+            F2 / 44100f
     };
 
     private float[] mDbsPercentagesConcrete = new float[SOUND_INDEX_COEFFICIENTS.length];
@@ -42,21 +28,46 @@ public class AudioVisualizer implements Visualizer.OnDataCaptureListener  {
 
     private  streamPusher pusher;
 
+    private  final int WINDOW_SIZE = 10;
+    private  final float BEAT_THRESHOLD = 0.2f;
+    private float[] window;
+    private int windowCounter = 0;
+    private float[][] beatmaps = {
+            {0f,0f,0f,0f,0f,0f,1f,1f,1f},
+            {1f,0f,1f,0f,1f,0f,0f,0f,0f},
+            {0f,1f,0f,1f,0f,1f,0f,0f,0f},
+            {1f,0f,1f,0f,1f,0f,1f,1f,1f},
+            {0f,1f,0f,1f,0f,1f,1f,1f,1f},
+            {1f,1f,1f,1f,1f,1f,0f,0f,0f}
+    };
+    private int beat_counter = 0;
+
     private final class streamPusher extends AsyncTask<Void, Void, Void>
     {
+
+
         @Override
         protected Void doInBackground(Void... voids) {
+            float impulse;
             while (true)
             {
-                byte l1 = (byte)Math.min((int)(mDbsPercentagesConcrete[0] * 255f), 255);
-                byte l2 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * 255f), 255);
-                byte l3 = (byte)Math.min((int)(mDbsPercentagesConcrete[2] * 255f), 255);
-                byte l4 = (byte)Math.min((int)(mDbsPercentagesConcrete[3] * 255f), 255);
-                byte l5 = (byte)Math.min((int)(mDbsPercentagesConcrete[4] * 255f), 255);
-                byte l6 = (byte)Math.min((int)(mDbsPercentagesConcrete[5] * 255f), 255);
-                byte l7 = (byte)Math.min((int)(mDbsPercentagesConcrete[6] * 255f), 255);
-                byte l8 = (byte)Math.min((int)(mDbsPercentagesConcrete[7] * 255f), 255);
-                byte l9 = (byte)Math.min((int)(mDbsPercentagesConcrete[8] * 255f), 255);
+                window[windowCounter++] = mDbsPercentagesConcrete[0];
+                if (windowCounter >= WINDOW_SIZE) windowCounter = 0;
+                impulse = Math.max(0f, mDbsPercentagesConcrete[0] - window[windowCounter] );
+                if (impulse > BEAT_THRESHOLD)
+                {
+                    if (++beat_counter >= beatmaps.length) beat_counter = 0;
+                }
+
+                byte l1 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][0] * 255f), 255);
+                byte l2 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][1] * 255f), 255);
+                byte l3 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][2] * 255f), 255);
+                byte l4 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][3] * 255f), 255);
+                byte l5 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][4] * 255f), 255);
+                byte l6 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][5] * 255f), 255);
+                byte l7 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][6] * 255f), 255);
+                byte l8 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][7] * 255f), 255);
+                byte l9 = (byte)Math.min((int)(mDbsPercentagesConcrete[1] * beatmaps[beat_counter][8] * 255f), 255);
 
                 try {
                     stream.write(new byte[] {0, l1,l2,l3,l4,l5,l6,l7,l8,l9} );
@@ -79,6 +90,10 @@ public class AudioVisualizer implements Visualizer.OnDataCaptureListener  {
         stream = daemon;
         mVisualizer.setEnabled(true);
         pusher = new streamPusher();
+
+        window = new float[WINDOW_SIZE];
+        for (int x = 0; x < WINDOW_SIZE; x++) window[x] = 0f;
+
         pusher.execute();
     }
 

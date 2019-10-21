@@ -225,7 +225,7 @@ public class LogoPlusService extends Service {
             for (AudioPlaybackConfiguration config :configs )
             {
                 AudioAttributes attr = config.getAudioAttributes();
-                if (attr.getUsage() == AudioAttributes.USAGE_MEDIA)
+                if (attr.getContentType() == AudioAttributes.CONTENT_TYPE_MUSIC)
                 {
                     media_playing = true;
                     break;
