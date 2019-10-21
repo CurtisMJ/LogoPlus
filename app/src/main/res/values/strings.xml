@@ -54,5 +54,5 @@
     <string name="customErrMsg">There was an error trying to load the custom effect. The effect has not been loaded</string>
     <string name="customSuccTitle">Success</string>
     <string name="customSuccMsg">The custom effect program was validated successfully. Selecting the Custom Effect effect type will now play the loaded program. </string>
-    <string name="visualizerOn">Visualizer On</string>
+    <string name="visualizerOn">Visualizer</string>
 </resources>
