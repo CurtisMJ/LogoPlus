@@ -590,6 +590,7 @@ public class MainActivity extends AppCompatActivity
             public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
                 state.visualizer = isChecked;
                 syncUIState();
+                if (isChecked) askPermissionVis();
             }
         });
 
@@ -889,6 +890,43 @@ public class MainActivity extends AppCompatActivity
 
     }
 
+    private void askPermissionVis() {
+
+        final List<String> permissions = new ArrayList<String>();
+
+        int RECORD_AUDIO = checkSelfPermission(Manifest.permission.RECORD_AUDIO);
+
+        if (RECORD_AUDIO != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.RECORD_AUDIO);
+        }
+
+
+        if (!permissions.isEmpty()) {
+            AlertDialog.Builder aboutBuilder = new AlertDialog.Builder(this);
+            aboutBuilder.setTitle(R.string.phonePermTitle);
+            aboutBuilder.setMessage(R.string.visPermDesc);
+            aboutBuilder.setNeutralButton(R.string.ok_text, new DialogInterface.OnClickListener() {
+
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    dialog.dismiss();
+                    requestPermissions(permissions.toArray(new String[permissions.size()]), 2);
+                }
+            });
+            aboutBuilder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+                @Override
+                public void onClick(DialogInterface dialog, int which) {
+                    visSwtich.setChecked(false);
+                }
+            });
+            AlertDialog aboutDialog = aboutBuilder.create();
+            aboutDialog.show();
+
+
+        }
+
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         if (requestCode == 1) {
@@ -896,6 +934,15 @@ public class MainActivity extends AppCompatActivity
                 if (grantResults[i] != PackageManager.PERMISSION_GRANTED)
                 {
                     ringEffectSwtich.setChecked(false);
+                    return;
+                }
+            }
+        }
+        else if (requestCode == 2) {
+            for (int i = 0; i < permissions.length; i++) {
+                if (grantResults[i] != PackageManager.PERMISSION_GRANTED)
+                {
+                    visSwtich.setChecked(false);
                     return;
                 }
             }
