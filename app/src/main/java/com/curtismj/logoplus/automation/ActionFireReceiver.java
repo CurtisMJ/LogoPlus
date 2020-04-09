@@ -18,6 +18,7 @@ public class ActionFireReceiver extends AbstractPluginSettingReceiver {
     public static final String KEY_PASSIVE_LEN = BuildConfig.APPLICATION_ID + ".effectLength";
     public static final String KEY_PASSIVE_LOCK = BuildConfig.APPLICATION_ID + ".effectLock";
     public static final String KEY_BRIGHTNESS = BuildConfig.APPLICATION_ID + ".brightness";
+    public static final String KEY_VISSTATE = BuildConfig.APPLICATION_ID + ".visState";
 
     @Override
     protected boolean isBundleValid(@NonNull Bundle bundle) {
@@ -28,11 +29,13 @@ public class ActionFireReceiver extends AbstractPluginSettingReceiver {
             if (bundle.containsKey(KEY_PASSIVE_LEN)) Integer.parseInt(bundle.getString(KEY_PASSIVE_LEN));
             if (bundle.containsKey(KEY_PASSIVE_LOCK)) Integer.parseInt(bundle.getString(KEY_PASSIVE_LOCK));
             if (bundle.containsKey(KEY_BRIGHTNESS)) Integer.parseInt(bundle.getString(KEY_BRIGHTNESS));
+            if (bundle.containsKey(KEY_VISSTATE)) Boolean.parseBoolean(bundle.getString(KEY_VISSTATE));
         }
         catch (NumberFormatException ex)
         {
             return false;
         }
+
         return true;
     }
 

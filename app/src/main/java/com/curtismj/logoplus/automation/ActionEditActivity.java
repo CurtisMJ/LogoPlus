@@ -100,6 +100,14 @@ public class ActionEditActivity extends AbstractAppCompatPluginActivity implemen
             inst.sync();
             addInst(inst);
         }
+        if (bundle.containsKey(ActionFireReceiver.KEY_VISSTATE))
+        {
+            inst = new AutomationInstruction(this, instSeq++, this);
+            inst.visStateFlag = bundle.getString(ActionFireReceiver.KEY_VISSTATE);
+            inst.actionType = AutomationInstruction.TYPE_VISSTATE;
+            inst.sync();
+            addInst(inst);
+        }
     }
 
 
@@ -113,13 +121,16 @@ public class ActionEditActivity extends AbstractAppCompatPluginActivity implemen
         effectColor = "",
         effectLen = "",
         effectLock = "",
-        brightness = "";
+        brightness = "",
+        visStateFlag = "";
 
         int effectNoSeq = Integer.MIN_VALUE,
         effectColorSeq = Integer.MIN_VALUE,
         effectLenSeq = Integer.MIN_VALUE,
         effectLockSeq = Integer.MIN_VALUE,
-        brightnessSeq = Integer.MIN_VALUE;
+        brightnessSeq = Integer.MIN_VALUE,
+        visStateSeq = Integer.MIN_VALUE;
+
         for (AutomationInstruction inst : internalList)
         {
             switch (inst.actionType)
@@ -163,6 +174,14 @@ public class ActionEditActivity extends AbstractAppCompatPluginActivity implemen
                         brightness = inst.bright;
                     }
                     break;
+
+                case AutomationInstruction.TYPE_VISSTATE:
+                    if (inst.sequence > visStateSeq)
+                    {
+                        visStateSeq = inst.sequence;
+                        visStateFlag = inst.visStateFlag;
+                    }
+                    break;
             }
         }
 
@@ -198,6 +217,12 @@ public class ActionEditActivity extends AbstractAppCompatPluginActivity implemen
             res.putString(ActionFireReceiver.KEY_BRIGHTNESS, brightness);
         }
 
+        if (visStateSeq != Integer.MIN_VALUE)
+        {
+            replaceKeys.add(ActionFireReceiver.KEY_VISSTATE);
+            res.putString(ActionFireReceiver.KEY_VISSTATE, visStateFlag);
+        }
+
         if ( TaskerPlugin.Setting.hostSupportsOnFireVariableReplacement( this ) )
             TaskerPlugin.Setting.setVariableReplaceKeys( res, replaceKeys.toArray(new String[0]) );
 
@@ -214,6 +239,7 @@ public class ActionEditActivity extends AbstractAppCompatPluginActivity implemen
         if (bundle.containsKey(ActionFireReceiver.KEY_PASSIVE_LEN)) blurb += "Passive Length: " + bundle.getString(ActionFireReceiver.KEY_PASSIVE_LEN) + "\n";
         if (bundle.containsKey(ActionFireReceiver.KEY_PASSIVE_LOCK)) blurb += "Passive while unlocked: " + bundle.getString(ActionFireReceiver.KEY_PASSIVE_LOCK) + "\n";
         if (bundle.containsKey(ActionFireReceiver.KEY_BRIGHTNESS)) blurb += "Global Brightness: " + bundle.getString(ActionFireReceiver.KEY_BRIGHTNESS) + "\n";
+        if (bundle.containsKey(ActionFireReceiver.KEY_VISSTATE)) blurb += "Visualizer State: " + bundle.getString(ActionFireReceiver.KEY_VISSTATE) + "\n";
 
         if (blurb.trim().equals("")) blurb = "Do nothing";
         return blurb;

@@ -315,6 +315,7 @@ public class BaseLogoMachine extends StateMachine {
                     @Override
                     public void run(StateMachine sm, int otherState, Object arg) {
                         visualizer = true;
+                        blankLights();
                         startVisualize();
                         LEDState = LED_INVALIDATED;
                     }

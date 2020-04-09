@@ -9,6 +9,8 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.FrameLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -24,6 +26,7 @@ public class AutomationInstruction extends FrameLayout {
     public static final int TYPE_PASSIVE_LEN = 2;
     public static final int TYPE_PASSIVE_LOCK = 3;
     public static final int TYPE_BRIGHTNESS = 4;
+    public static final int TYPE_VISSTATE = 5;
 
     public interface RemoveCallback
     {
@@ -49,7 +52,8 @@ public class AutomationInstruction extends FrameLayout {
         initView(context);
     }
 
-    String effectNo = "", effectLen = "", effectLock = "", bright = "";
+    String effectNo = "", effectLen = "", effectLock = "", bright = "", visStateFlag = "";
+
     int actionType = 0;
     String passColor = Integer.toString(Color.GREEN);
     int sequence;
@@ -59,6 +63,7 @@ public class AutomationInstruction extends FrameLayout {
     private TextView passiveLen;
     private TextView passiveLock;
     private TextView brightness;
+    private CheckBox visState;
     private Spinner instSpinner;
 
     public void sync()
@@ -68,6 +73,7 @@ public class AutomationInstruction extends FrameLayout {
         passiveLen.setText(effectLen);
         passiveLock.setText(effectLock);
         brightness.setText(bright);
+        visState.setChecked(Boolean.parseBoolean(visStateFlag));
         instSpinner.setSelection(actionType);
     }
 
@@ -214,6 +220,15 @@ public class AutomationInstruction extends FrameLayout {
             @Override
             public void afterTextChanged(Editable s) {
                 bright = s.toString();
+            }
+        });
+
+        // Visualizer state special logic
+        visState = view.findViewById(R.id.visState);
+        visState.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                visStateFlag = Boolean.toString(isChecked);
             }
         });
 

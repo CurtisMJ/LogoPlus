@@ -56,4 +56,5 @@
     <string name="customSuccMsg">The custom effect program was validated successfully. Selecting the Custom Effect effect type will now play the loaded program. </string>
     <string name="visualizerOn">Visualizer</string>
     <string name="visPermDesc">To use the visualizer effect, Logo+ needs the following permissions:\n\nRecord audio:\nAllows the app to listen in on the global mixer and visualize the output.\n\nIf you press OK, the above permissions will be requested. If you press Cancel or deny the permissions the functionality will not be enabled</string>
+    <string name="visAutomation">Set Visualizer State</string>
 </resources>

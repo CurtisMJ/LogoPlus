@@ -554,6 +554,15 @@ public class LogoPlusService extends Service {
                             fsm.Event(BaseLogoMachine.EVENT_STATE_UPDATE, state);
                         }
 
+                        if (data.containsKey(ActionFireReceiver.KEY_VISSTATE))
+                        {
+                            try {
+                                Message vismsg = mServiceHandler.obtainMessage(Boolean.parseBoolean(data.getString(ActionFireReceiver.KEY_VISSTATE)) ? VIS_START : VIS_STOP);
+                                mServiceHandler.sendMessage(vismsg);
+                            }
+                            catch (Exception ex) {}
+                        }
+
                     }
 
                     break;
