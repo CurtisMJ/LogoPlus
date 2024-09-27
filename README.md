@@ -1,3 +1,5 @@
+## I no longer own this device. Repository is archived
+
 ![LogoPlus Logo](https://github.com/CurtisMJ/LogoPlus/blob/master/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png)
 
 # LogoPlus
